@@ -151,6 +151,7 @@ static int MPIR_NCCL_get_datatype(MPI_Datatype dtype, ncclDataType_t * nccl_dtyp
             break;
         case MPIR_FLOAT16:
             *nccl_dtype = ncclFloat16;
+            break;
         case MPIR_FLOAT32:
             *nccl_dtype = ncclFloat32;
             break;
