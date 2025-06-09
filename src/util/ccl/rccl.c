@@ -213,13 +213,14 @@ int MPIR_RCCL_Allreduce(const void *sendbuf, void *recvbuf, MPI_Aint count, MPI_
     MPIR_ERR_CHECK(mpi_errno);
     MPIR_RCCLcomm *rcclcomm = comm_ptr->cclcomm->rcclcomm;
 
+    /* Dummy call to test HIP device */
     hipDeviceProp_t prop;
     ret = hipGetDeviceProperties(&prop, 0);
     HIP_ERR_CHECK(ret);
     if (comm_ptr->rank == 0) {
         printf("RCCL Allreduce using HIP device: %s\n", prop.name);
     }
-    
+
     MPL_pointer_attr_t recv_attr;
     mpi_errno = MPL_gpu_query_pointer_attr(recvbuf, &recv_attr);
     MPIR_ERR_CHECK(mpi_errno);
