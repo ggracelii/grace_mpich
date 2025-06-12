@@ -25,24 +25,35 @@ Create a configuration script titled `cf.sh`:
 HIP_PATH=/soft/compilers/rocm/rocm-6.3.2
 HIP_INC=$HIP_PATH/include
 HIP_LIB=$HIP_PATH/lib
+LLVM_PATH=$HIP_PATH/llvm
 
 export HIPCC=$HIP_PATH/bin/hipcc
-export PATH=$HIP_PATH/bin:$PATH
+export CC=$LLVM_PATH/bin/clang
+export CXX=$LLVM_PATH/bin/clang++
+
+export PATH=$HIP_PATH/bin:$LLVM_PATH/bin:$PATH
 export LD_LIBRARY_PATH=$HIP_LIB:$LD_LIBRARY_PATH
 
 RCCL_DIR=$HOME/rccl/build
 RCCL_INC=$RCCL_DIR/include/rccl
 RCCL_LIB=$RCCL_DIR/lib
+
 export LD_LIBRARY_PATH=$RCCL_LIB:$LD_LIBRARY_PATH
 
 export CPPFLAGS="-DENABLE_CCLCOMM -DENABLE_RCCL"
-export CFLAGS="-I${RCCL_INC} -I${HIP_INC}"
+export CFLAGS="-g -O0 -I${RCCL_INC} -I${HIP_INC}"
+export CXXFLAGS="-g -O0 -I${RCCL_INC} -I${HIP_INC}"
 export LDFLAGS="-L${RCCL_LIB} -L${HIP_LIB}"
 export LIBS="-lrccl -lamdhip64"
 
-make clean
+make clean || true
 
 ../configure \
+  CFLAGS="$CFLAGS" \
+  CXXFLAGS="$CXXFLAGS" \
+  CPPFLAGS="$CPPFLAGS" \
+  LDFLAGS="$LDFLAGS" \
+  LIBS="$LIBS" \
   --prefix=$(pwd)/install \
   --with-libfabric=embedded
 ```
@@ -58,14 +69,7 @@ make install 2>&1|tee install.log
 This will build MPICH and log the output to `make.log` and `install.log`.
 
 ### 4. Build and install
-```bash
-export HIP_PATH=/soft/compilers/rocm/rocm-6.3.2
-export PATH=$HIP_PATH/bin:$PATH
-export HIPCC=$HIP_PATH/bin/hipcc
-```
-Check `which hipcc` to ensure that `hipcc` exists.
-
-Then run:
+Run:
 ```bash
 chmod +x cf.sh remake.sh
 ./cf.sh && ./remake.sh
