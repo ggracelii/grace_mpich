@@ -11,6 +11,9 @@
     if (unlikely((ret) != hipSuccess)) \
     goto fn_fail
 
+#define NCCL_ERR_CHECK(ret)             \
+    if (unlikely((ret) != ncclSuccess)) \
+        goto fn_fail
 /*
  * Static helper functions
  */
@@ -20,6 +23,7 @@ static int MPIR_RCCLcomm_init(MPIR_Comm * comm_ptr, int rank)
     int mpi_errno = MPI_SUCCESS;
     int comm_size = comm_ptr->local_size;
     hipError_t ret;
+    ncclResult_t n_ret;
 
     MPIR_RCCLcomm *rcclcomm;
     rcclcomm = MPL_malloc(sizeof(MPIR_RCCLcomm), MPL_MEM_OTHER);
@@ -35,20 +39,21 @@ static int MPIR_RCCLcomm_init(MPIR_Comm * comm_ptr, int rank)
 
     ret = hipStreamCreate(&(rcclcomm->stream));
     HIP_ERR_CHECK(ret);
-    ret = ncclCommInitRank(&(rcclcomm->rcclcomm), comm_size, rcclcomm->id, rank);
-    HIP_ERR_CHECK(ret);
+    
+    n_ret = ncclCommInitRank(&(rcclcomm->rcclcomm), comm_size, rcclcomm->id, rank);
+    NCCL_ERR_CHECK(n_ret);
 
     /* Dummy RCCL usage */
-    if (rank == 0) {
-        void *dummy_ptr;
-        ret = hipMalloc(&dummy_ptr, 1024);
-        if (ret != hipSuccess) {
-            printf("hipMalloc failed in RCCL init: %s\n", hipGetErrorString(ret));
-        } else {
-            printf("hipMalloc succeeded in RCCL init.\n");
-            hipFree(dummy_ptr);
-        }
-    }
+    // if (rank == 0) {
+    //     void *dummy_ptr;
+    //     ret = hipMalloc(&dummy_ptr, 1024);
+    //     if (ret != hipSuccess) {
+    //         printf("hipMalloc failed in RCCL init: %s\n", hipGetErrorString(ret));
+    //     } else {
+    //         printf("hipMalloc succeeded in RCCL init.\n");
+    //         hipFree(dummy_ptr);
+    //     }
+    // }
 
     comm_ptr->cclcomm->rcclcomm = rcclcomm;
 
@@ -137,7 +142,7 @@ static int MPIR_RCCL_datatype_is_supported(MPI_Datatype dtype)
     }
 }
 
-static int MPIR_RCCL_get_datatype(MPI_Datatype dtype, ncclDataType_t * nccl_dtype)
+static int MPIR_RCCL_get_datatype(MPI_Datatype dtype, ncclDataType_t * rccl_dtype)
 {
     int mpi_errno = MPI_SUCCESS;
 
@@ -200,6 +205,7 @@ int MPIR_RCCL_Allreduce(const void *sendbuf, void *recvbuf, MPI_Aint count, MPI_
 {
     int mpi_errno = MPI_SUCCESS;
     hipError_t ret;
+    ncclResult_t n_ret;
 
     ncclRedOp_t rcclOp;
     mpi_errno = MPIR_RCCL_get_red_op(op, &rcclOp);
@@ -214,12 +220,12 @@ int MPIR_RCCL_Allreduce(const void *sendbuf, void *recvbuf, MPI_Aint count, MPI_
     MPIR_RCCLcomm *rcclcomm = comm_ptr->cclcomm->rcclcomm;
 
     /* Dummy call to test HIP device */
-    hipDeviceProp_t prop;
-    ret = hipGetDeviceProperties(&prop, 0);
-    HIP_ERR_CHECK(ret);
-    if (comm_ptr->rank == 0) {
-        printf("RCCL Allreduce using HIP device: %s\n", prop.name);
-    }
+    // hipDeviceProp_t prop;
+    // ret = hipGetDeviceProperties(&prop, 0);
+    // HIP_ERR_CHECK(ret);
+    // if (comm_ptr->rank == 0) {
+    //     printf("RCCL Allreduce using HIP device: %s\n", prop.name);
+    // }
 
     MPL_pointer_attr_t recv_attr;
     mpi_errno = MPL_gpu_query_pointer_attr(recvbuf, &recv_attr);
@@ -231,9 +237,9 @@ int MPIR_RCCL_Allreduce(const void *sendbuf, void *recvbuf, MPI_Aint count, MPI_
         sendbuf = recvbuf;
     }
 
-    ret = ncclAllReduce(sendbuf, recvbuf, count, rcclDatatype, rcclOp, rcclcomm->rcclcomm,
+    n_ret = ncclAllReduce(sendbuf, recvbuf, count, rcclDatatype, rcclOp, rcclcomm->rcclcomm,
                         rcclcomm->stream);
-    HIP_ERR_CHECK(ret);
+    NCCL_ERR_CHECK(n_ret);
 
     /* Ensure the communication completes */
     ret = hipStreamSynchronize(rcclcomm->stream);
@@ -249,14 +255,15 @@ int MPIR_RCCLcomm_free(MPIR_Comm * comm)
 {
     int mpi_errno = MPI_SUCCESS;
     hipError_t ret;
+    ncclResult_t n_ret;
 
     MPIR_Assert(comm->cclcomm->rcclcomm);
     MPIR_CCLcomm *cclcomm = comm->cclcomm;
 
     ret = hipStreamSynchronize(cclcomm->rcclcomm->stream);
     HIP_ERR_CHECK(ret);
-    ret = ncclCommDestroy(cclcomm->rcclcomm->rcclcomm);
-    HIP_ERR_CHECK(ret);
+    n_ret = ncclCommDestroy(cclcomm->rcclcomm->rcclcomm);
+    NCCL_ERR_CHECK(n_ret);
     ret = hipStreamDestroy(cclcomm->rcclcomm->stream);
     HIP_ERR_CHECK(ret);
 
