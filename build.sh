@@ -11,9 +11,8 @@ print_block() {
 }
 
 # Step 0: Run autogen.sh
-# print_block "Running autogen.sh"
-#./autogen.sh
 print_block "Skipping autogen.sh"
+# ./autogen.sh
 
 # Step 1: Create and enter build/install directory
 print_block "Preparing build directory"
@@ -29,16 +28,17 @@ HIP_INC=$HIP_PATH/include
 HIP_LIB=$HIP_PATH/lib
 LLVM_PATH=$HIP_PATH/llvm
 
-export HIPCC=$HIP_PATH/bin/hipcc                  # For HIP-based builds (e.g. RCCL)
-export CC=$LLVM_PATH/bin/clang                    # For host code compilation
-export CXX=$LLVM_PATH/bin/clang++                 # For host C++ code
+export HIPCC=$HIP_PATH/bin/hipcc
+export CC=$LLVM_PATH/bin/clang
+export CXX=$LLVM_PATH/bin/clang++
 
 export PATH=$HIP_PATH/bin:$LLVM_PATH/bin:$PATH
 export LD_LIBRARY_PATH=$HIP_LIB:$LD_LIBRARY_PATH
 
-RCCL_DIR=$HOME/rccl/build
-RCCL_INC=$RCCL_DIR/include/rccl
-RCCL_LIB=$RCCL_DIR/lib
+# RCCL from local source build
+RCCL_BASE=$HOME/rccl/build/release
+RCCL_INC=$RCCL_BASE/include/rccl
+RCCL_LIB=$RCCL_BASE
 
 export LD_LIBRARY_PATH=$RCCL_LIB:$LD_LIBRARY_PATH
 
@@ -53,7 +53,7 @@ make clean || true
 print_block "Running configure"
 ../configure \
   --prefix=$(pwd)/install \
-  --with-libfabric=embedded
+  --with-libfabric=embedded \
 
 # Step 4: Build
 print_block "Running make"
