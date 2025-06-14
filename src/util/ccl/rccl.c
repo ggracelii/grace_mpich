@@ -189,18 +189,18 @@ static int MPIR_RCCL_get_datatype(MPI_Datatype dtype, ncclDataType_t * rccl_dtyp
  * External functions
  */
 
-// int MPIR_RCCL_check_requirements_red_op(const void *sendbuf, void *recvbuf, MPI_Datatype datatype,
-//                                         MPI_Op op)
-// {
-//     if (!MPIR_RCCL_red_op_is_supported(op) || !MPIR_RCCL_datatype_is_supported(datatype) ||
-//         !MPIR_CCL_check_both_gpu_bufs(sendbuf, recvbuf)) {
-//         return 0;
-//     }
+int MPIR_RCCL_check_requirements_red_op(const void *sendbuf, void *recvbuf, MPI_Datatype datatype,
+                                        MPI_Op op)
+{
+    if (!MPIR_RCCL_red_op_is_supported(op) || !MPIR_RCCL_datatype_is_supported(datatype) ||
+        !MPIR_CCL_check_both_gpu_bufs(sendbuf, recvbuf)) {
+        return 0;
+    }
 
-//     return 1;
-// }
+    return 1;
+}
 
-/* for debugging */
+/* for debugging
 #include <stdio.h>=
 
 int MPIR_RCCL_check_requirements_red_op(const void *sendbuf, void *recvbuf, MPI_Datatype datatype,
@@ -232,6 +232,7 @@ int MPIR_RCCL_check_requirements_red_op(const void *sendbuf, void *recvbuf, MPI_
     printf("[RCCL Check] All requirements met. Using RCCL.\n");
     return 1;
 }
+*/
 
 int MPIR_RCCL_Allreduce(const void *sendbuf, void *recvbuf, MPI_Aint count, MPI_Datatype datatype,
                         MPI_Op op, MPIR_Comm * comm_ptr, MPIR_Errflag_t errflag)

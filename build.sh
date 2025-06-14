@@ -21,39 +21,54 @@ mkdir -p build/install
 cd build
 
 # Step 2: Configure environment
-print_block "Setting HIP and RCCL environment"
+print_block "Setting HIP, RCCL, and UCX environment"
 
 HIP_PATH=/soft/compilers/rocm/rocm-6.3.2
 HIP_INC=$HIP_PATH/include
 HIP_LIB=$HIP_PATH/lib
-LLVM_PATH=$HIP_PATH/llvm
-
 export HIPCC=$HIP_PATH/bin/hipcc
+
+LLVM_PATH=$HIP_PATH/llvm
 export CC=$LLVM_PATH/bin/clang
 export CXX=$LLVM_PATH/bin/clang++
 
 export PATH=$HIP_PATH/bin:$LLVM_PATH/bin:$PATH
 export LD_LIBRARY_PATH=$HIP_LIB:$LD_LIBRARY_PATH
 
-# RCCL from local source build
 RCCL_BASE=$HOME/rccl/build/release
 RCCL_INC=$RCCL_BASE/include/rccl
 RCCL_LIB=$RCCL_BASE
-
 export LD_LIBRARY_PATH=$RCCL_LIB:$LD_LIBRARY_PATH
 
-export CPPFLAGS="-DENABLE_CCLCOMM -DENABLE_RCCL"
-export CFLAGS="-I${RCCL_INC} -I${HIP_INC}"
-export LDFLAGS="-L${RCCL_LIB} -L${HIP_LIB}"
+UCX_PATH=$HOME/ucx/build/install
+UCX_INC=$UCX_PATH/include
+UCX_LIB=$UCX_PATH/lib
+export LD_LIBRARY_PATH=$UCX_LIB:$LD_LIBRARY_PATH
+
+export CPPFLAGS="-DENABLE_CCLCOMM -DENABLE_RCCL -I${HIP_INC} -I${RCCL_INC} -I${UCX_INC}"
+export CFLAGS="-I${HIP_INC} -I${RCCL_INC} -I${UCX_INC}"
+export LDFLAGS="-L${HIP_LIB} -L${RCCL_LIB} -L${UCX_LIB} -Wl,-rpath,${UCX_LIB} -Wl,-rpath,${HIP_LIB}"
 export LIBS="-lrccl -lamdhip64"
 
 make clean || true
 
-# Step 3: Configure
 print_block "Running configure"
 ../configure \
   --prefix=$(pwd)/install \
-  --with-libfabric=embedded \
+  --with-hip=$HIP_PATH \
+  --with-device=ch4:ucx \
+  --with-rocm=$HIP_PATH \
+  --prefix=$(pwd)/install \
+  --with-ucx=embedded \
+  --enable-fast=all \
+  CPPFLAGS="$CPPFLAGS" \
+  CFLAGS="$CFLAGS" \
+  LDFLAGS="$LDFLAGS" \
+  LIBS="$LIBS"
+
+  # --with-ucx-lib=$UCX_LIB \
+  # --with-rccl-include=$RCCL_INC \
+  # --with-rccl-lib=$RCCL_LIB \
 
 # Step 4: Build
 print_block "Running make"
