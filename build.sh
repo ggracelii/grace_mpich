@@ -45,6 +45,12 @@ UCX_INC=$UCX_PATH/include
 UCX_LIB=$UCX_PATH/lib
 export LD_LIBRARY_PATH=$UCX_LIB:$LD_LIBRARY_PATH
 
+# Add architecture-specific flags for HIP (gfx908 for MI100)
+export GFX_ARCH="gfx908"
+export CXXFLAGS="--offload-arch=${GFX_ARCH}"
+export HIPCCFLAGS="--offload-arch=${GFX_ARCH}"
+
+# Standard build flags
 export CPPFLAGS="-DENABLE_CCLCOMM -DENABLE_RCCL -I${HIP_INC} -I${RCCL_INC} -I${UCX_INC}"
 export CFLAGS="-I${HIP_INC} -I${RCCL_INC} -I${UCX_INC}"
 export LDFLAGS="-L${HIP_LIB} -L${RCCL_LIB} -L${UCX_LIB} -Wl,-rpath,${UCX_LIB} -Wl,-rpath,${HIP_LIB}"
@@ -52,23 +58,21 @@ export LIBS="-lrccl -lamdhip64"
 
 make clean || true
 
+# Step 3: Configure MPICH
 print_block "Running configure"
 ../configure \
   --prefix=$(pwd)/install \
   --with-hip=$HIP_PATH \
-  --with-device=ch4:ucx \
   --with-rocm=$HIP_PATH \
-  --prefix=$(pwd)/install \
+  --with-device=ch4:ucx \
   --with-ucx=embedded \
+  --enable-hip \
   --enable-fast=all \
   CPPFLAGS="$CPPFLAGS" \
   CFLAGS="$CFLAGS" \
+  CXXFLAGS="$CXXFLAGS" \
   LDFLAGS="$LDFLAGS" \
   LIBS="$LIBS"
-
-  # --with-ucx-lib=$UCX_LIB \
-  # --with-rccl-include=$RCCL_INC \
-  # --with-rccl-lib=$RCCL_LIB \
 
 # Step 4: Build
 print_block "Running make"
