@@ -29,14 +29,17 @@ int MPIR_Allreduce_intra_ccl(const void *sendbuf, void *recvbuf, MPI_Aint count,
     case MPIR_CVAR_ALLREDUCE_CCL_auto:
     case MPIR_CVAR_ALLREDUCE_CCL_rccl:
         if (MPIR_RCCL_check_requirements_red_op(sendbuf, recvbuf, datatype, op)) {
-            // printf("MPIR_Allreduce_intra_ccl: Using RCCL for Allreduce\n");
+            //printf(">> MPIR_Allreduce_intra_ccl: Using RCCL backend\n");
             return MPIR_RCCL_Allreduce(sendbuf, recvbuf, count, datatype, op, comm_ptr,
                                        errflag);
+        } else {
+            //printf(">> MPIR_Allreduce_intra_ccl: RCCL requirements not met, falling back\n");
         }
         break;
 #endif
 
     default:
+        //printf(">> MPIR_Allreduce_intra_ccl: Unknown CCL backend, falling back\n");
         goto fallback;
     }
   fallback:

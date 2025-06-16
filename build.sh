@@ -45,8 +45,8 @@ UCX_INC=$UCX_PATH/include
 UCX_LIB=$UCX_PATH/lib
 export LD_LIBRARY_PATH=$UCX_LIB:$LD_LIBRARY_PATH
 
-# Add architecture-specific flags for HIP (gfx908 for MI100)
-export GFX_ARCH="gfx908"
+export GFX_ARCH=$(rocminfo | grep -o 'gfx[0-9a-z]\+' | head -n1)
+echo "Detected GPU architecture: $GFX_ARCH"
 export CXXFLAGS="--offload-arch=${GFX_ARCH}"
 export HIPCCFLAGS="--offload-arch=${GFX_ARCH}"
 
