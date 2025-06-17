@@ -64,8 +64,11 @@ print_block "Running configure"
   --prefix=$(pwd)/install \
   --with-hip=$HIP_PATH \
   --with-rocm=$HIP_PATH \
+  --with-rccl-include=$RCCL_INC \
+  --with-rccl-lib=$RCCL_LIB \
   --with-device=ch4:ucx \
-  --with-ucx=embedded \
+  --with-ucx-include=$UCX_INC \
+  --with-ucv-lib=$UCX_LIB \
   --enable-hip \
   --enable-fast=all \
   CPPFLAGS="$CPPFLAGS" \
