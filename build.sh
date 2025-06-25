@@ -33,17 +33,16 @@ export CC=$LLVM_PATH/bin/clang
 export CXX=$LLVM_PATH/bin/clang++
 
 export PATH=$HIP_PATH/bin:$LLVM_PATH/bin:$PATH
-export LD_LIBRARY_PATH=$HIP_LIB:$LD_LIBRARY_PATH
 
 RCCL_BASE=$HOME/rccl/build/release
 RCCL_INC=$RCCL_BASE/include/rccl
 RCCL_LIB=$RCCL_BASE
-export LD_LIBRARY_PATH=$RCCL_LIB:$LD_LIBRARY_PATH
 
-UCX_PATH=$HOME/ucx/build/install
+UCX_PATH=$HOME/ucx/install
 UCX_INC=$UCX_PATH/include
 UCX_LIB=$UCX_PATH/lib
-export LD_LIBRARY_PATH=$UCX_LIB:$LD_LIBRARY_PATH
+
+export LD_LIBRARY_PATH=$UCX_LIB:$RCCL_LIB:$HIP_LIB:$LD_LIBRARY_PATH
 
 export GFX_ARCH=$(rocminfo | grep -o 'gfx[0-9a-z]\+' | head -n1)
 echo "Detected GPU architecture: $GFX_ARCH"
@@ -56,21 +55,19 @@ export CFLAGS="-I${HIP_INC} -I${RCCL_INC} -I${UCX_INC}"
 export LDFLAGS="-L${HIP_LIB} -L${RCCL_LIB} -L${UCX_LIB} -Wl,-rpath,${UCX_LIB} -Wl,-rpath,${HIP_LIB}"
 export LIBS="-lrccl -lamdhip64"
 
-make clean || true
 
 # Step 3: Configure MPICH
 print_block "Running configure"
 ../configure \
   --prefix=$(pwd)/install \
   --with-hip=$HIP_PATH \
-  --with-rocm=$HIP_PATH \
   --with-rccl-include=$RCCL_INC \
   --with-rccl-lib=$RCCL_LIB \
   --with-device=ch4:ucx \
   --with-ucx-include=$UCX_INC \
-  --with-ucv-lib=$UCX_LIB \
-  --enable-hip \
+  --with-ucx-lib=$UCX_LIB \
   --enable-fast=all \
+  --with-pm=hydra \
   CPPFLAGS="$CPPFLAGS" \
   CFLAGS="$CFLAGS" \
   CXXFLAGS="$CXXFLAGS" \
