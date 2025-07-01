@@ -46,6 +46,8 @@ int MPIR_Allreduce_intra_reduce_scatter_allgather(const void *sendbuf,
                                                   MPI_Op op,
                                                   MPIR_Comm * comm_ptr, MPIR_Errflag_t errflag)
 {
+    int rank_ = comm_ptr->rank;
+    if (rank_ == 0) { printf("*                       MPIR_Allreduce_intra_reduce_scatter_allgather called\n"); fflush(stdout); }
     MPIR_CHKLMEM_DECL();
     int comm_size, rank;
     int mpi_errno = MPI_SUCCESS;

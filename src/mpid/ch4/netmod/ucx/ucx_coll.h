@@ -13,14 +13,18 @@
 
 MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_barrier(MPIR_Comm * comm_ptr, MPIR_Errflag_t errflag)
 {
+    int rank = comm_ptr->rank;
+    if (rank == 0) { printf("*                       MPIDI_NM_mpi_barrier called (UCX)\n"); fflush(stdout); }
     int mpi_errno;
     MPIR_FUNC_ENTER;
 
 #ifdef HAVE_HCOLL
+    if (rank == 0) { printf("*                           hcoll_Barrier called\n"); fflush(stdout); }
     mpi_errno = hcoll_Barrier(comm_ptr, errflag);
     if (mpi_errno != MPI_SUCCESS)
 #endif
     {
+        if (rank == 0) { printf("*                           MPIR_Barrier_impl called\n"); fflush(stdout); }
         mpi_errno = MPIR_Barrier_impl(comm_ptr, errflag);
     }
 
@@ -32,14 +36,18 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_bcast(void *buffer, MPI_Aint count, MP
                                                 int root, MPIR_Comm * comm_ptr,
                                                 MPIR_Errflag_t errflag)
 {
+    int rank = comm_ptr->rank;
+    if (rank == 0) { printf("*                       MPIDI_NM_mpi_bcast called (UCX)\n"); fflush(stdout); }
     int mpi_errno;
     MPIR_FUNC_ENTER;
 
 #ifdef HAVE_HCOLL
+    if (rank == 0) { printf("*                           hcoll_Bcast called\n"); fflush(stdout); }
     mpi_errno = hcoll_Bcast(buffer, count, datatype, root, comm_ptr, errflag);
     if (mpi_errno != MPI_SUCCESS)
 #endif
     {
+        if (rank == 0) { printf("*                           MPIR_Bcast_impl called\n"); fflush(stdout); }
         mpi_errno = MPIR_Bcast_impl(buffer, count, datatype, root, comm_ptr, errflag);
     }
 
@@ -52,14 +60,18 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_allreduce(const void *sendbuf, void *r
                                                     MPI_Op op, MPIR_Comm * comm_ptr,
                                                     MPIR_Errflag_t errflag)
 {
+    int rank = comm_ptr->rank;
+    if (rank == 0) { printf("*                       MPIDI_NM_mpi_allreduce called (UCX)\n"); fflush(stdout); }
     int mpi_errno;
     MPIR_FUNC_ENTER;
 
 #ifdef HAVE_HCOLL
+    if (rank == 0) { printf("*                           hcoll_Allreduce called\n"); fflush(stdout); }
     mpi_errno = hcoll_Allreduce(sendbuf, recvbuf, count, datatype, op, comm_ptr, errflag);
     if (mpi_errno != MPI_SUCCESS)
 #endif
     {
+        if (rank == 0) { printf("*                           MPIR_Allreduce_impl called\n"); fflush(stdout); }
         mpi_errno = MPIR_Allreduce_impl(sendbuf, recvbuf, count, datatype, op, comm_ptr, errflag);
     }
 
@@ -237,14 +249,18 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_reduce(const void *sendbuf, void *recv
                                                  MPI_Datatype datatype, MPI_Op op, int root,
                                                  MPIR_Comm * comm_ptr, MPIR_Errflag_t errflag)
 {
+    int rank = comm_ptr->rank;
+    if (rank == 0) { printf("*                       MPIDI_NM_mpi_reduce called (UCX)\n"); fflush(stdout); }
     int mpi_errno;
     MPIR_FUNC_ENTER;
 
 #ifdef HAVE_HCOLL
+    if (rank == 0) { printf("*                           hcoll_Reduce called\n"); fflush(stdout); }
     mpi_errno = hcoll_Reduce(sendbuf, recvbuf, count, datatype, op, root, comm_ptr, errflag);
     if (mpi_errno != MPI_SUCCESS)
 #endif
     {
+        if (rank == 0) { printf("*                           MPIR_Reduce_impl called\n"); fflush(stdout); }
         mpi_errno = MPIR_Reduce_impl(sendbuf, recvbuf, count, datatype, op, root, comm_ptr,
                                      errflag);
     }

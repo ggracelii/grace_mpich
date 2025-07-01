@@ -29,6 +29,8 @@ int MPIR_Allreduce_intra_recursive_multiplying(const void *sendbuf,
                                                MPIR_Comm * comm_ptr,
                                                const int k, MPIR_Errflag_t errflag)
 {
+    int rank_ = comm_ptr->rank;
+    if (rank_ == 0) { printf("*                       MPIR_Allreduce_intra_recursive_multiplying called\n"); fflush(stdout); }
     int mpi_errno = MPI_SUCCESS;
     int comm_size, rank, virt_rank;
     MPIR_COMM_RANK_SIZE(comm_ptr, rank, comm_size);

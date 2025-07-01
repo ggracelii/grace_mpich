@@ -538,6 +538,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_alpha(const void 
                                                                      MPIR_Comm * comm,
                                                                      MPIR_Errflag_t errflag)
 {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    if (rank == 0) { printf("Entered alpha algorithm\n"); fflush(stdout); }
     int mpi_errno = MPI_SUCCESS;
     void *in_recvbuf = recvbuf;
     void *host_sendbuf = NULL;
@@ -554,7 +557,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_alpha(const void 
     if ((MPL_gpu_attr_is_strict_dev(&send_attr) || MPL_gpu_attr_is_strict_dev(&recv_attr)) &&
         (size <= MPIR_CVAR_CH4_GPU_COLL_SWAP_BUFFER_SZ)) {
         MPIDI_Coll_host_buffer_genq_alloc(sendbuf, recvbuf, count, datatype, &host_sendbuf,
-                                          &host_recvbuf, send_attr, recv_attr, shift);
+                                        &host_recvbuf, send_attr, recv_attr, shift);
         if (host_sendbuf != NULL)
             sendbuf = host_sendbuf;
         if (host_recvbuf != NULL)
@@ -562,25 +565,32 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_alpha(const void 
     }
 
     if (comm->node_comm != NULL) {
+        // if (rank == 0) { printf("    Node comm exists\n"); fflush(stdout); }
         if ((sendbuf == MPI_IN_PLACE) && (comm->node_comm->rank != 0)) {
+            // if (rank == 0) { printf("        sendbuf == MPI_IN_PLACE\n"); fflush(stdout); }
 #ifndef MPIDI_CH4_DIRECT_NETMOD
+            // if (rank == 0) { printf("            Calling SHM reduce\n"); fflush(stdout); }
             mpi_errno =
                 MPIDI_SHM_mpi_reduce(recvbuf, NULL, count, datatype, op, 0, comm->node_comm,
                                      errflag);
             MPIR_ERR_CHECK(mpi_errno);
 #else
+            // if (rank == 0) { printf("            Calling NM reduce\n"); fflush(stdout); }
             mpi_errno =
                 MPIDI_NM_mpi_reduce(recvbuf, NULL, count, datatype, op, 0, comm->node_comm,
                                     errflag);
             MPIR_ERR_CHECK(mpi_errno);
 #endif /* MPIDI_CH4_DIRECT_NETMOD */
         } else {
+            // if (rank == 0) { printf("        Not in place\n"); fflush(stdout); }
 #ifndef MPIDI_CH4_DIRECT_NETMOD
+            // if (rank == 0) { printf("            Calling SHM reduce\n"); fflush(stdout); }
             mpi_errno =
                 MPIDI_SHM_mpi_reduce(sendbuf, recvbuf, count, datatype, op, 0, comm->node_comm,
                                      errflag);
             MPIR_ERR_CHECK(mpi_errno);
 #else
+            // if (rank == 0) { printf("            Calling NM reduce\n"); fflush(stdout); }
             mpi_errno =
                 MPIDI_NM_mpi_reduce(sendbuf, recvbuf, count, datatype, op, 0, comm->node_comm,
                                     errflag);
@@ -588,13 +598,16 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_alpha(const void 
 #endif /* MPIDI_CH4_DIRECT_NETMOD */
         }
     } else {
+        // if (rank == 0) { printf("    Node comm DNE\n"); fflush(stdout); }
         if (sendbuf != MPI_IN_PLACE) {
+            // if (rank == 0) { printf("        Calling MPIR local copy\n"); fflush(stdout); }
             mpi_errno = MPIR_Localcopy(sendbuf, count, datatype, recvbuf, count, datatype);
             MPIR_ERR_CHECK(mpi_errno);
         }
     }
 
     if (comm->node_roots_comm != NULL) {
+        // if (rank == 0) { printf("    Node roots comm exists\n"); fflush(stdout); }
         mpi_errno =
             MPIDI_NM_mpi_allreduce(MPI_IN_PLACE, recvbuf, count, datatype, op,
                                    comm->node_roots_comm, errflag);
@@ -602,10 +615,13 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_alpha(const void 
     }
 
     if (comm->node_comm != NULL) {
+        // if (rank == 0) { printf("    Node comm exists\n"); fflush(stdout); }
 #ifndef MPIDI_CH4_DIRECT_NETMOD
+        // if (rank == 0) { printf("        Calling SHM bcast\n"); fflush(stdout); }
         mpi_errno = MPIDI_SHM_mpi_bcast(recvbuf, count, datatype, 0, comm->node_comm, errflag);
         MPIR_ERR_CHECK(mpi_errno);
 #else
+        // if (rank == 0) { printf("        Calling NM bcast\n"); fflush(stdout); }
         mpi_errno = MPIDI_NM_mpi_bcast(recvbuf, count, datatype, 0, comm->node_comm, errflag);
         MPIR_ERR_CHECK(mpi_errno);
 #endif
@@ -634,6 +650,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_beta(const void *
                                                                     MPIR_Comm * comm,
                                                                     MPIR_Errflag_t errflag)
 {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    if (rank == 0) { printf("Entered beta algorithm\n"); fflush(stdout); }
     int mpi_errno = MPI_SUCCESS;
     void *in_recvbuf = recvbuf;
     void *host_sendbuf = NULL;
@@ -649,14 +668,18 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_beta(const void *
 
     if ((MPL_gpu_attr_is_strict_dev(&send_attr) || MPL_gpu_attr_is_strict_dev(&recv_attr)) &&
         (size <= MPIR_CVAR_CH4_GPU_COLL_SWAP_BUFFER_SZ)) {
+        if (rank == 0) { printf("    Allocating host buffers - beta with size: %ld\n", size); fflush(stdout); }
         MPIDI_Coll_host_buffer_genq_alloc(sendbuf, recvbuf, count, datatype, &host_sendbuf,
-                                          &host_recvbuf, send_attr, recv_attr, shift);
+                                        &host_recvbuf, send_attr, recv_attr, shift);
         if (host_sendbuf != NULL)
             sendbuf = host_sendbuf;
         if (host_recvbuf != NULL)
             recvbuf = host_recvbuf;
+    } else {
+        if (rank == 0) { printf("    Not allocating host buffers - beta with size: %ld\n", size); fflush(stdout); }
     }
 
+    // if (rank == 0) { printf("    Calling NM allreduce\n"); fflush(stdout); }
     mpi_errno = MPIDI_NM_mpi_allreduce(sendbuf, recvbuf, count, datatype, op, comm, errflag);
     MPIR_ERR_CHECK(mpi_errno);
 
@@ -683,6 +706,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_gamma(const void 
                                                                      MPIR_Comm * comm,
                                                                      MPIR_Errflag_t errflag)
 {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    if (rank == 0) { printf("Entered gamma algorithm\n"); fflush(stdout); }
     int mpi_errno = MPI_SUCCESS;
     void *in_recvbuf = recvbuf;
     void *host_sendbuf = NULL;
@@ -698,16 +724,23 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_gamma(const void 
 
     if ((MPL_gpu_attr_is_strict_dev(&send_attr) || MPL_gpu_attr_is_strict_dev(&recv_attr)) &&
         (size <= MPIR_CVAR_CH4_GPU_COLL_SWAP_BUFFER_SZ)) {
-        MPIDI_Coll_host_buffer_genq_alloc(sendbuf, recvbuf, count, datatype, &host_sendbuf,
-                                          &host_recvbuf, send_attr, recv_attr, shift);
+        if (rank == 0) { printf("    Allocating host buffers - gamma with size: %ld\n", size); fflush(stdout); }
+        MPIDI_Coll_host_buffer_genq_alloc(sendbuf, recvbuf, count, datatype,
+                                        &host_sendbuf, &host_recvbuf,
+                                        send_attr, recv_attr, shift);
         if (host_sendbuf != NULL)
             sendbuf = host_sendbuf;
         if (host_recvbuf != NULL)
             recvbuf = host_recvbuf;
+    } else {
+        if (rank == 0) { printf("    Not allocating host buffers - gamma with size: %ld\n", size); fflush(stdout); }
     }
+
 #ifndef MPIDI_CH4_DIRECT_NETMOD
+    // if (rank == 0) { printf("    Calling SHM allreduce\n"); fflush(stdout); }
     mpi_errno = MPIDI_SHM_mpi_allreduce(sendbuf, recvbuf, count, datatype, op, comm, errflag);
 #else
+    // if (rank == 0) { printf("    Calling NM allreduce\n"); fflush(stdout); }
     mpi_errno = MPIDI_NM_mpi_allreduce(sendbuf, recvbuf, count, datatype, op, comm, errflag);
 #endif
     MPIR_ERR_CHECK(mpi_errno);
@@ -743,6 +776,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_delta(const void 
                                                                      MPIR_Comm * comm_ptr,
                                                                      MPIR_Errflag_t errflag)
 {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    if (rank == 0) { printf("Entered delta algorithm\n"); fflush(stdout); }
     int mpi_errno = MPI_SUCCESS;
     char *shm_addr;
     int my_leader_rank = -1, iter;
@@ -763,6 +799,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_delta(const void 
         sendbuf = recvbuf;
 
     if (MPIDI_COMM(comm_ptr, sub_node_comm) == NULL) {
+        // if (rank == 0) { printf("    Sub-node comm DNE, creating multi leaders\n"); fflush(stdout); }
         /* Create multi-leaders comm in a lazily */
         mpi_errno = MPIDI_Comm_create_multi_leader_subcomms(comm_ptr, num_leads);
         MPIR_ERR_CHECK(mpi_errno);
@@ -770,6 +807,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_delta(const void 
 
     /* Allocate the shared memory buffer per node, if it is not already done */
     if (MPIDI_COMM(comm_ptr, allreduce_comp_info->shm_addr) == NULL) {
+        // if (rank == 0) { printf("    Allocating shared memory buffer\n"); fflush(stdout); }
         /* Determine the shm_size_per_lead */
         /* If user didn't set anything, set shm_size_per_lead according to the first call */
         /* since CVAR is set only once this check should only happen once during the course of
@@ -798,6 +836,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_delta(const void 
     shm_size_per_lead = MPIDI_COMM(comm_ptr, shm_size_per_lead);
 
     if (MPIDI_COMM(comm_ptr, intra_node_leads_comm) != NULL) {
+        // if (rank == 0) { printf("    Intra-node leads comm exists\n"); fflush(stdout); }
         my_leader_rank = MPIR_Comm_rank(MPIDI_COMM(comm_ptr, intra_node_leads_comm));
     }
 
@@ -817,8 +856,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_delta(const void 
 
         /* Step 0: Barrier to make sure the shm_buffer can be reused after the previous call */
 #ifndef MPIDI_CH4_DIRECT_NETMOD
+        // if (rank == 0) { printf("        Calling SHM barrier\n"); fflush(stdout); }
         mpi_errno = MPIDI_SHM_mpi_barrier(comm_ptr->node_comm, errflag);
 #else
+        // if (rank == 0) { printf("        Calling NM barrier\n"); fflush(stdout); }
         mpi_errno = MPIDI_NM_mpi_barrier(comm_ptr->node_comm, errflag);
 #endif
         MPIR_ERR_CHECK(mpi_errno);
@@ -826,12 +867,14 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_delta(const void 
         /* Step 1: Leaders perform reduce on is intra_node_sub_communicator. Reduced data is
          * available in the leader's shared buffer */
 #ifndef MPIDI_CH4_DIRECT_NETMOD
+        if (rank == 0) { printf("        Calling SHM reduce\n"); fflush(stdout); }
         mpi_errno =
             MPIDI_SHM_mpi_reduce((char *) sendbuf + offset * extent,
                                  (char *) shm_addr + my_leader_rank * shm_size_per_lead,
                                  chunk_count, datatype, op, 0, MPIDI_COMM(comm_ptr, sub_node_comm),
                                  errflag);
 #else
+        // if (rank == 0) { printf("        Calling NM reduce\n"); fflush(stdout); }
         mpi_errno =
             MPIDI_NM_mpi_reduce((char *) sendbuf + offset * extent,
                                 (char *) shm_addr + my_leader_rank * shm_size_per_lead, chunk_count,
@@ -843,8 +886,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_delta(const void 
          * buffers. */
         if (MPIDI_COMM(comm_ptr, intra_node_leads_comm) != NULL) {
 #ifndef MPIDI_CH4_DIRECT_NETMOD
+            // if (rank == 0) { printf("        Calling SHM barrier on intra_node_leads_comm\n"); fflush(stdout); }
             mpi_errno = MPIDI_SHM_mpi_barrier(MPIDI_COMM(comm_ptr, intra_node_leads_comm), errflag);
 #else
+            // if (rank == 0) { printf("        Calling NM barrier on intra_node_leads_comm\n"); fflush(stdout); }
             mpi_errno = MPIDI_NM_mpi_barrier(MPIDI_COMM(comm_ptr, intra_node_leads_comm), errflag);
 #endif
             MPIR_ERR_CHECK(mpi_errno);
@@ -853,6 +898,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_delta(const void 
         /* Step 3: Each leader is responsible to reduce a portion of the data (chunk_count/num_leads),
          * from shm_buffer of every leader into shm_buffer of leader 0 */
         if (MPIDI_COMM(comm_ptr, intra_node_leads_comm) != NULL) {
+            // if (rank == 0) { printf("        Reducing data from shm buffers\n"); fflush(stdout); }
 
             int j;
             MPI_Aint cache_tile_size, cache_chunk_count;
@@ -867,8 +913,11 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_delta(const void 
                                                     extent, per_leader_count, &cache_chunk_count,
                                                     &cache_chunk_size_floor,
                                                     &cache_chunk_size_ceil);
+                                                    
+            // if (rank == 0) { printf("            Calling local reduce\n"); fflush(stdout); }
             for (j = 0; j < cache_chunk_count; j++) {
                 for (i = 1; i < num_leads; i++) {
+                    
                     mpi_errno =
                         MPIR_Reduce_local((char *) shm_addr +
                                           (i * shm_size_per_lead + leader_offset +
@@ -887,6 +936,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_delta(const void 
         /* Step 4: Inter-node Allreduce on all the inter_node_multi_leader_comm. Each leader is
          * responsible for (chunk_count/num_leads) data */
         if (MPIDI_COMM(comm_ptr, inter_node_leads_comm != NULL)) {
+            // if (rank == 0) { printf("        Calling NM allreduce\n"); fflush(stdout); }
             mpi_errno = MPIDI_NM_mpi_allreduce(MPI_IN_PLACE, (char *) shm_addr +
                                                my_leader_rank * ((chunk_count / num_leads) *
                                                                  extent), per_leader_count,
@@ -899,8 +949,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_delta(const void 
         /* Step 5: Barrier to make sure non-leaders wait for leaders to finish reducing the data
          * from other nodes */
 #ifndef MPIDI_CH4_DIRECT_NETMOD
+        // if (rank == 0) { printf("        Calling SHM barrier on node_comm\n"); fflush(stdout); }
         mpi_errno = MPIDI_SHM_mpi_barrier(comm_ptr->node_comm, errflag);
 #else
+        // if (rank == 0) { printf("        Calling NM barrier on node_comm\n"); fflush(stdout); }
         mpi_errno = MPIDI_NM_mpi_barrier(comm_ptr->node_comm, errflag);
 #endif
         MPIR_ERR_CHECK(mpi_errno);

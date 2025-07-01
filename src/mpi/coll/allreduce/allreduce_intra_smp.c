@@ -9,6 +9,9 @@ int MPIR_Allreduce_intra_smp(const void *sendbuf, void *recvbuf, MPI_Aint count,
                              MPI_Datatype datatype, MPI_Op op, MPIR_Comm * comm_ptr,
                              MPIR_Errflag_t errflag)
 {
+
+    int rank_ = comm_ptr->rank;
+    if (rank_ == 0) { printf("*                       MPIR_Allreduce_intra_smp called\n"); fflush(stdout); }
     int mpi_errno = MPI_SUCCESS;
 
     /* on each node, do a reduce to the local root */

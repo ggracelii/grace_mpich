@@ -13,6 +13,8 @@ int MPIR_Allreduce_intra_ring(const void *sendbuf, void *recvbuf, MPI_Aint count
                               MPI_Datatype datatype, MPI_Op op,
                               MPIR_Comm * comm, MPIR_Errflag_t errflag)
 {
+    int rank_ = comm->rank;
+    if (rank_ == 0) { printf("*                       MPIR_Allreduce_intra_ring called\n"); fflush(stdout); }
     int mpi_errno = MPI_SUCCESS;
     int i, src, dst;
     int nranks, is_inplace, rank;

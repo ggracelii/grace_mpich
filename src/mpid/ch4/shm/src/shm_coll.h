@@ -11,6 +11,8 @@
 
 MPL_STATIC_INLINE_PREFIX int MPIDI_SHM_mpi_barrier(MPIR_Comm * comm, MPIR_Errflag_t errflag)
 {
+    int rank = comm->rank;
+    if (rank == 0) { printf("*                       MPIDI_SHM_mpi_barrier called\n"); fflush(stdout); }
     int ret;
 
     MPIR_FUNC_ENTER;
@@ -25,6 +27,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_SHM_mpi_bcast(void *buffer, MPI_Aint count,
                                                  MPI_Datatype datatype, int root, MPIR_Comm * comm,
                                                  MPIR_Errflag_t errflag)
 {
+    int rank = comm->rank;
+    if (rank == 0) { printf("*                       MPIDI_SHM_mpi_bcast called\n"); fflush(stdout); }
     int ret;
 
     MPIR_FUNC_ENTER;
@@ -40,6 +44,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_SHM_mpi_allreduce(const void *sendbuf, void *
                                                      MPI_Op op, MPIR_Comm * comm,
                                                      MPIR_Errflag_t errflag)
 {
+    int rank = comm->rank;
+    if (rank == 0) { printf("*                       MPIDI_SHM_mpi_allreduce called\n"); fflush(stdout); }
     int ret;
 
     MPIR_FUNC_ENTER;
@@ -215,6 +221,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_SHM_mpi_reduce(const void *sendbuf, void *rec
                                                   int root, MPIR_Comm * comm_ptr,
                                                   MPIR_Errflag_t errflag)
 {
+    int rank = comm_ptr->rank;
+    if (rank == 0) { printf("*                       MPIDI_SHM_mpi_reduce called\n"); fflush(stdout); }
     int ret;
 
     MPIR_FUNC_ENTER;
