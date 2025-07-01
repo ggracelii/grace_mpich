@@ -332,6 +332,12 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_allcomm_composition_json(const void
                                                                       MPI_Op op, MPIR_Comm * comm,
                                                                       int coll_attr)
 {
+
+    if (comm->rank == 0) {
+        // printf("Using JSON file: %s\n", MPIR_CVAR_CH4_COLL_SELECTION_TUNING_JSON_FILE);
+        fflush(stdout);
+    }
+
     int mpi_errno = MPI_SUCCESS;
     const MPIDI_Csel_container_s *cnt = NULL;
     int num_leads = 0, node_comm_size = 0;
@@ -355,6 +361,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_allcomm_composition_json(const void
         goto fn_exit;
     }
 
+    // printf("Selected container ID: %d\n", cnt->id);
+    fflush(stdout);
     switch (cnt->id) {
         case MPIDI_CSEL_CONTAINER_TYPE__COMPOSITION__MPIDI_Allreduce_intra_composition_alpha:
             mpi_errno =
@@ -419,30 +427,54 @@ MPL_STATIC_INLINE_PREFIX int MPID_Allreduce(const void *sendbuf, void *recvbuf, 
 
     switch (MPIR_CVAR_ALLREDUCE_COMPOSITION) {
         case 1:
+            // if (comm->rank == 0) { printf("Switch statment: MPIR_CVAR_ALLREDUCE_COMPOSITION = 1, running alpha\n"); fflush(stdout); 
+            //                        printf("    comm->comm_kind == MPIR_COMM_KIND__INTRACOMM = %d\n", comm->comm_kind == MPIR_COMM_KIND__INTRACOMM); fflush(stdout); 
+            //                     //    printf("    MPIR_Comm_is_parent_comm(comm) = %d\n", MPIR_Comm_is_parent_comm(comm)); fflush(stdout); 
+            //                        printf("    is_commutative = %d\n", is_commutative); fflush(stdout); }
+            // MPII_COLLECTIVE_FALLBACK_CHECK(comm->rank, (comm->comm_kind == MPIR_COMM_KIND__INTRACOMM) && is_commutative, mpi_errno, "Allreduce composition alpha cannot be applied.\n");
+            
             MPII_COLLECTIVE_FALLBACK_CHECK(comm->rank,
                                            (comm->comm_kind == MPIR_COMM_KIND__INTRACOMM) &&
                                            MPIR_Comm_is_parent_comm(comm) &&
                                            is_commutative, mpi_errno,
                                            "Allreduce composition alpha cannot be applied.\n");
+
+            // if (comm->rank == 0) { printf("   After fallback check for alpha\n"); fflush(stdout); }
+            
             mpi_errno =
                 MPIDI_Allreduce_intra_composition_alpha(sendbuf, recvbuf, count, datatype, op, comm,
                                                         coll_attr);
             break;
         case 2:
+            // if (comm->rank == 0) { printf("Switch statment: MPIR_CVAR_ALLREDUCE_COMPOSITION = 2, running beta\n"); fflush(stdout); 
+            //                        printf("    comm->comm_kind == MPIR_COMM_KIND__INTRACOMM = %d\n", comm->comm_kind == MPIR_COMM_KIND__INTRACOMM); fflush(stdout); 
+            //                        printf("    MPIR_Comm_is_parent_comm(comm) = %d\n", MPIR_Comm_is_parent_comm(comm)); fflush(stdout); 
+            //                        printf("    is_commutative = %d\n", is_commutative); fflush(stdout); }
             MPII_COLLECTIVE_FALLBACK_CHECK(comm->rank,
                                            comm->comm_kind == MPIR_COMM_KIND__INTRACOMM, mpi_errno,
                                            "Allreduce composition beta cannot be applied.\n");
+            
+            // if (comm->rank == 0) { printf("   After fallback check for beta\n"); fflush(stdout); }
+            
             mpi_errno =
                 MPIDI_Allreduce_intra_composition_beta(sendbuf, recvbuf, count, datatype, op, comm,
                                                        coll_attr);
             break;
         case 3:
+            // if (comm->rank == 0) { printf("Switch statment: MPIR_CVAR_ALLREDUCE_COMPOSITION = 3, running gamma\n"); fflush(stdout); 
+            //                        printf("    comm->comm_kind == MPIR_COMM_KIND__INTRACOMM = %d\n", comm->comm_kind == MPIR_COMM_KIND__INTRACOMM); fflush(stdout); 
+            //                        printf("    MPIR_Comm_size(comm) == comm->num_local = %d\n", MPIR_Comm_size(comm) == comm->num_local); fflush(stdout);
+            //                        printf("        MPIR_Comm_size(comm) = %d\n", MPIR_Comm_size(comm)); fflush(stdout);
+            //                        printf("        comm->num_local = %d\n", comm->num_local); fflush(stdout);
+            //                        printf("        comm->num_external = %d\n", comm->num_external); fflush(stdout); }
+
             MPII_COLLECTIVE_FALLBACK_CHECK(comm->rank,
                                            (comm->comm_kind == MPIR_COMM_KIND__INTRACOMM) &&
-                                           (comm->node_comm != NULL) &&
-                                           (MPIR_Comm_size(comm) ==
-                                            MPIR_Comm_size(comm->node_comm)), mpi_errno,
+                                           (MPIR_Comm_size(comm) == comm->num_local), mpi_errno,
                                            "Allreduce composition gamma cannot be applied.\n");
+            
+            // if (comm->rank == 0) { printf("   After fallback check for gamma\n"); fflush(stdout); }
+            
             mpi_errno =
                 MPIDI_Allreduce_intra_composition_gamma(sendbuf, recvbuf, count, datatype, op, comm,
                                                         coll_attr);
@@ -459,10 +491,19 @@ MPL_STATIC_INLINE_PREFIX int MPID_Allreduce(const void *sendbuf, void *recvbuf, 
                     MPL_round_closest_multiple(node_comm_size, MPIR_CVAR_NUM_MULTI_LEADS, 15);
             }
 
-            MPII_COLLECTIVE_FALLBACK_CHECK(comm->rank, comm->comm_kind == MPIR_COMM_KIND__INTRACOMM
-                                           && MPIDI_COMM_ALLREDUCE(comm, use_multi_leads) == 1 &&
-                                           count >= num_leads && is_commutative, mpi_errno,
-                                           "Allreduce composition delta cannot be applied.\n");
+            // if (comm->rank == 0) { printf("Switch statment: MPIR_CVAR_ALLREDUCE_COMPOSITION = 4, running delta\n"); fflush(stdout); 
+            //                        printf("    comm->comm_kind == MPIR_COMM_KIND__INTRACOMM = %d\n", comm->comm_kind == MPIR_COMM_KIND__INTRACOMM); fflush(stdout); 
+            //                     //    printf("    MPIDI_COMM_ALLREDUCE(comm, use_multi_leads) == 1 = %d\n", MPIDI_COMM_ALLREDUCE(comm, use_multi_leads) == 1); fflush(stdout); 
+            //                        printf("    count >= num_leads = %d\n", count >= num_leads); fflush(stdout);
+            //                        printf("    is_commutative = %d\n", is_commutative); fflush(stdout); }
+
+            MPII_COLLECTIVE_FALLBACK_CHECK(comm->rank, comm->comm_kind == MPIR_COMM_KIND__INTRACOMM && is_commutative, mpi_errno, "Allreduce composition delta cannot be applied.\n");
+
+            // MPII_COLLECTIVE_FALLBACK_CHECK(comm->rank, comm->comm_kind == MPIR_COMM_KIND__INTRACOMM
+            //                                && MPIDI_COMM_ALLREDUCE(comm, use_multi_leads) == 1 &&
+            //                                count >= num_leads && is_commutative, mpi_errno,
+            //                                "Allreduce composition delta cannot be applied.\n");
+            // if (comm->rank == 0) { printf("   After fallback check for delta\n"); fflush(stdout); }
             /* Multi-leaders based composition can only be used if the comm is spanned over more than
              * 1 node, has equal number of ranks on each node, count is more than number of leaders and
              * the operation is commutative. This composition is beneficial for large messages.
@@ -474,6 +515,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Allreduce(const void *sendbuf, void *recvbuf, 
             break;
 
         default:
+            if (comm->rank == 0) { printf("Switch statment: MPIR_CVAR_ALLREDUCE_COMPOSITION = 0, running json\n"); fflush(stdout); }
             mpi_errno =
                 MPIDI_Allreduce_allcomm_composition_json(sendbuf, recvbuf, count, datatype, op,
                                                          comm, coll_attr);
@@ -487,6 +529,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Allreduce(const void *sendbuf, void *recvbuf, 
     if (comm->comm_kind == MPIR_COMM_KIND__INTERCOMM)
         mpi_errno = MPIR_Allreduce_impl(sendbuf, recvbuf, count, datatype, op, comm, coll_attr);
     else
+        if (comm->rank == 0) { printf("Fallback: running beta\n"); fflush(stdout); }
         mpi_errno =
             MPIDI_Allreduce_intra_composition_beta(sendbuf, recvbuf, count, datatype, op, comm,
                                                    coll_attr);

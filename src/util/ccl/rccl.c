@@ -189,19 +189,19 @@ static int MPIR_RCCL_get_datatype(MPI_Datatype dtype, ncclDataType_t * rccl_dtyp
  * External functions
  */
 
-int MPIR_RCCL_check_requirements_red_op(const void *sendbuf, void *recvbuf, MPI_Datatype datatype,
-                                        MPI_Op op)
-{
-    if (!MPIR_RCCL_red_op_is_supported(op) || !MPIR_RCCL_datatype_is_supported(datatype) ||
-        !MPIR_CCL_check_both_gpu_bufs(sendbuf, recvbuf)) {
-        return 0;
-    }
+// int MPIR_RCCL_check_requirements_red_op(const void *sendbuf, void *recvbuf, MPI_Datatype datatype,
+//                                         MPI_Op op)
+// {
+//     if (!MPIR_RCCL_red_op_is_supported(op) || !MPIR_RCCL_datatype_is_supported(datatype) ||
+//         !MPIR_CCL_check_both_gpu_bufs(sendbuf, recvbuf)) {
+//         return 0;
+//     }
 
-    return 1;
-}
+//     return 1;
+// }
 
-/* for debugging
-#include <stdio.h>=
+
+#include <stdio.h>
 
 int MPIR_RCCL_check_requirements_red_op(const void *sendbuf, void *recvbuf, MPI_Datatype datatype,
                                         MPI_Op op)
@@ -210,29 +210,22 @@ int MPIR_RCCL_check_requirements_red_op(const void *sendbuf, void *recvbuf, MPI_
     int dtype_supported = MPIR_RCCL_datatype_is_supported(datatype);
     int buffers_on_gpu = MPIR_CCL_check_both_gpu_bufs(sendbuf, recvbuf);
 
-    printf("[RCCL Check] op_supported=%d, dtype_supported=%d, buffers_on_gpu=%d\n",
-           op_supported, dtype_supported, buffers_on_gpu);
-
-    if (!op_supported) {
-        printf("[RCCL Check] Unsupported MPI_Op passed: %d\n", op);
-    }
-
-    if (!dtype_supported) {
-        printf("[RCCL Check] Unsupported MPI_Datatype passed: %d\n", datatype);
-    }
-
-    if (!buffers_on_gpu) {
-        printf("[RCCL Check] Buffers not on GPU (sendbuf=%p, recvbuf=%p)\n", sendbuf, recvbuf);
+    int rank = MPIR_Comm_rank(MPIR_Process.comm_world);
+    if (rank == 0) {
+        printf("[RCCL Check] op_supported=%d, dtype_supported=%d, buffers_on_gpu=%d\n", op_supported, dtype_supported, buffers_on_gpu);
+        fflush(stdout);
+        // if (!op_supported) { printf("[RCCL Check] Unsupported MPI_Op passed: %d\n", op); fflush(stdout);}
+        // if (!dtype_supported) { printf("[RCCL Check] Unsupported MPI_Datatype passed: %d\n", datatype); fflush(stdout); }
+        // if (!buffers_on_gpu) { printf("[RCCL Check] Buffers not on GPU (sendbuf=%p, recvbuf=%p)\n", sendbuf, recvbuf); fflush(stdout); }
     }
 
     if (!op_supported || !dtype_supported || !buffers_on_gpu) {
         return 0;
     }
 
-    printf("[RCCL Check] All requirements met. Using RCCL.\n");
+    if (rank == 0) { printf("[RCCL Check] All requirements met. Using RCCL.\n"); fflush(stdout); }
     return 1;
 }
-*/
 
 int MPIR_RCCL_Allreduce(const void *sendbuf, void *recvbuf, MPI_Aint count, MPI_Datatype datatype,
                         MPI_Op op, MPIR_Comm * comm_ptr, MPIR_Errflag_t errflag)

@@ -552,7 +552,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_alpha(const void 
     if ((MPL_gpu_attr_is_strict_dev(&send_attr) || MPL_gpu_attr_is_strict_dev(&recv_attr)) &&
         (size <= MPIR_CVAR_CH4_GPU_COLL_SWAP_BUFFER_SZ)) {
         MPIDI_Coll_host_buffer_genq_alloc(sendbuf, recvbuf, count, datatype, &host_sendbuf,
-                                          &host_recvbuf, send_attr, recv_attr, shift);
+                                        &host_recvbuf, send_attr, recv_attr, shift);
         if (host_sendbuf != NULL)
             sendbuf = host_sendbuf;
         if (host_recvbuf != NULL)
@@ -647,7 +647,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_beta(const void *
     if ((MPL_gpu_attr_is_strict_dev(&send_attr) || MPL_gpu_attr_is_strict_dev(&recv_attr)) &&
         (size <= MPIR_CVAR_CH4_GPU_COLL_SWAP_BUFFER_SZ)) {
         MPIDI_Coll_host_buffer_genq_alloc(sendbuf, recvbuf, count, datatype, &host_sendbuf,
-                                          &host_recvbuf, send_attr, recv_attr, shift);
+                                        &host_recvbuf, send_attr, recv_attr, shift);
         if (host_sendbuf != NULL)
             sendbuf = host_sendbuf;
         if (host_recvbuf != NULL)
@@ -695,13 +695,16 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_gamma(const void 
 
     if ((MPL_gpu_attr_is_strict_dev(&send_attr) || MPL_gpu_attr_is_strict_dev(&recv_attr)) &&
         (size <= MPIR_CVAR_CH4_GPU_COLL_SWAP_BUFFER_SZ)) {
-        MPIDI_Coll_host_buffer_genq_alloc(sendbuf, recvbuf, count, datatype, &host_sendbuf,
-                                          &host_recvbuf, send_attr, recv_attr, shift);
+        MPIDI_Coll_host_buffer_genq_alloc(sendbuf, recvbuf, count, datatype,
+                                        &host_sendbuf, &host_recvbuf,
+                                        send_attr, recv_attr, shift);
         if (host_sendbuf != NULL)
             sendbuf = host_sendbuf;
         if (host_recvbuf != NULL)
             recvbuf = host_recvbuf;
     }
+
+
 #ifndef MPIDI_CH4_DIRECT_NETMOD
     mpi_errno = MPIDI_SHM_mpi_allreduce(sendbuf, recvbuf, count, datatype, op, comm, coll_attr);
 #else
@@ -852,7 +855,6 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_delta(const void 
         /* Step 3: Each leader is responsible to reduce a portion of the data (chunk_count/num_leads),
          * from shm_buffer of every leader into shm_buffer of leader 0 */
         if (MPIDI_COMM(comm_ptr, intra_node_leads_comm) != NULL) {
-
             int j;
             MPI_Aint cache_tile_size, cache_chunk_count;
             int leader_offset = my_leader_rank * (chunk_count / num_leads) * extent;
@@ -866,8 +868,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_delta(const void 
                                                     extent, per_leader_count, &cache_chunk_count,
                                                     &cache_chunk_size_floor,
                                                     &cache_chunk_size_ceil);
+                                                    
             for (j = 0; j < cache_chunk_count; j++) {
                 for (i = 1; i < num_leads; i++) {
+                    
                     mpi_errno =
                         MPIR_Reduce_local((char *) shm_addr +
                                           (i * shm_size_per_lead + leader_offset +

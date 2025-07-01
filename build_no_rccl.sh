@@ -31,8 +31,8 @@ fi
 mkdir -p build/install
 cd build
 
-# Step 2: Configure environment
-print_block "Setting HIP, RCCL, and UCX environment"
+# Step 2: Configure HIP and UCX environment
+print_block "Setting HIP and UCX environment"
 
 HIP_PATH=/soft/compilers/rocm/rocm-6.3.2
 HIP_INC=$HIP_PATH/include
@@ -45,15 +45,11 @@ export CXX=$LLVM_PATH/bin/clang++
 
 export PATH=$HIP_PATH/bin:$LLVM_PATH/bin:$PATH
 
-RCCL_BASE=$HOME/rccl/build/release
-RCCL_INC=$RCCL_BASE/include/rccl
-RCCL_LIB=$RCCL_BASE
-
 UCX_PATH=$HOME/ucx/install
 UCX_INC=$UCX_PATH/include
 UCX_LIB=$UCX_PATH/lib
 
-export LD_LIBRARY_PATH=$UCX_LIB:$RCCL_LIB:$HIP_LIB:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$UCX_LIB:$HIP_LIB:$LD_LIBRARY_PATH
 
 export GFX_ARCH=$(rocminfo | grep -o 'gfx[0-9a-z]\+' | head -n1)
 echo "Detected GPU architecture: $GFX_ARCH"
@@ -61,26 +57,22 @@ export CXXFLAGS="--offload-arch=${GFX_ARCH}"
 export HIPCCFLAGS="--offload-arch=${GFX_ARCH}"
 
 # Standard build flags
-export CPPFLAGS="-DENABLE_CCLCOMM -DENABLE_RCCL -I${HIP_INC} -I${RCCL_INC} -I${UCX_INC}"
-export CFLAGS="-I${HIP_INC} -I${RCCL_INC} -I${UCX_INC}"
-export LDFLAGS="-L${HIP_LIB} -L${RCCL_LIB} -L${UCX_LIB} -Wl,-rpath,${UCX_LIB} -Wl,-rpath,${HIP_LIB}"
-export LIBS="-lrccl -lamdhip64"
+export CPPFLAGS="-DENABLE_CCLCOMM -I${HIP_INC} -I${UCX_INC}"
+export CFLAGS="-I${HIP_INC} -I${UCX_INC}"
+export LDFLAGS="-L${HIP_LIB} -L${UCX_LIB} -Wl,-rpath,${UCX_LIB} -Wl,-rpath,${HIP_LIB}"
+export LIBS="-lamdhip64"
 
-
-# Step 3: Configure MPICH
+# Step 3: Configure MPICH (no RCCL)
 print_block "Running configure"
 ../configure \
   --prefix=$(pwd)/install \
   --with-hip=$HIP_PATH \
-  --with-rccl-include=$RCCL_INC \
-  --with-rccl-lib=$RCCL_LIB \
   --with-device=ch4:ucx \
   --with-ucx-include=$UCX_INC \
   --with-ucx-lib=$UCX_LIB \
   --enable-fast=all,O1 \
   --with-pm=hydra \
   --with-ch4-shmmods=posix \
-  --enable-debug=all \
   CPPFLAGS="$CPPFLAGS" \
   CFLAGS="$CFLAGS" \
   CXXFLAGS="$CXXFLAGS" \

@@ -18,6 +18,9 @@ int MPIR_Allreduce_intra_tree(const void *sendbuf,
                               int tree_type, int k, int chunk_size,
                               int buffer_per_child, int coll_attr)
 {
+
+    int rank_ = comm_ptr->rank;
+    if (rank_ == 0) { printf("*                       MPIR_Allreduce_intra_tree called\n"); fflush(stdout); }
     int comm_size, rank;
     int mpi_errno = MPI_SUCCESS;
     int is_commutative;

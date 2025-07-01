@@ -20,6 +20,8 @@ int MPIR_Allreduce_intra_recexch(const void *sendbuf,
                                  MPI_Op op, MPIR_Comm * comm, int k, int single_phase_recv,
                                  int coll_attr)
 {
+    int rank_ = comm->rank;
+    if (rank_ == 0) { printf("*                       MPIR_Allreduce_intra_recexch called\n"); fflush(stdout); }
     int mpi_errno = MPI_SUCCESS;
     int is_commutative, rank, nranks, nbr, myidx;
     int buf = 0;

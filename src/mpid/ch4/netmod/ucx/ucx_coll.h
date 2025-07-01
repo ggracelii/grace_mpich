@@ -13,6 +13,8 @@
 
 MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_barrier(MPIR_Comm * comm_ptr, int coll_attr)
 {
+    int rank = comm_ptr->rank;
+    if (rank == 0) { printf("*                       MPIDI_NM_mpi_barrier called (UCX)\n"); fflush(stdout); }
     int mpi_errno;
     MPIR_FUNC_ENTER;
 
@@ -31,6 +33,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_barrier(MPIR_Comm * comm_ptr, int coll
 MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_bcast(void *buffer, MPI_Aint count, MPI_Datatype datatype,
                                                 int root, MPIR_Comm * comm_ptr, int coll_attr)
 {
+    int rank = comm_ptr->rank;
+    if (rank == 0) { printf("*                       MPIDI_NM_mpi_bcast called (UCX)\n"); fflush(stdout); }
     int mpi_errno;
     MPIR_FUNC_ENTER;
 
@@ -50,6 +54,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_allreduce(const void *sendbuf, void *r
                                                     MPI_Aint count, MPI_Datatype datatype,
                                                     MPI_Op op, MPIR_Comm * comm_ptr, int coll_attr)
 {
+    int rank = comm_ptr->rank;
+    if (rank == 0) { printf("*                       MPIDI_NM_mpi_allreduce called (UCX)\n"); fflush(stdout); }
     int mpi_errno;
     MPIR_FUNC_ENTER;
 
@@ -233,6 +239,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_reduce(const void *sendbuf, void *recv
                                                  MPI_Datatype datatype, MPI_Op op, int root,
                                                  MPIR_Comm * comm_ptr, int coll_attr)
 {
+    int rank = comm_ptr->rank;
+    if (rank == 0) { printf("*                       MPIDI_NM_mpi_reduce called (UCX)\n"); fflush(stdout); }
     int mpi_errno;
     MPIR_FUNC_ENTER;
 
@@ -241,6 +249,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_reduce(const void *sendbuf, void *recv
     if (mpi_errno != MPI_SUCCESS)
 #endif
     {
+        if (rank == 0) { printf("*                           MPIR_Reduce_impl called\n"); fflush(stdout); }
         mpi_errno = MPIR_Reduce_impl(sendbuf, recvbuf, count, datatype, op, root, comm_ptr,
                                      coll_attr);
     }
