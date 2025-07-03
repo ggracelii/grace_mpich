@@ -16,18 +16,24 @@ print_block "Skipping autogen.sh"
 
 # Step 1: Create and enter build/install directory
 print_block "Preparing build directory"
-if make -q distclean 2>/dev/null; then
-    echo "Found distclean target, running make distclean..."
-    make distclean
+print_block "Preparing build directory"
+
+if [ -d build ]; then
+    echo "Found existing build directory. Cleaning it..."
+
+    if [ -f build/Makefile ]; then
+        echo "Found Makefile, running make distclean..."
+        (cd build && make distclean)
+    else
+        echo "No Makefile found, skipping make distclean."
+    fi
+
+    echo "Removing build directory..."
+    rm -rf build
 else
-    echo "No distclean target found. Skipping."
+    echo "No existing build directory. Creating fresh one..."
 fi
-if make -q clean 2>/dev/null; then
-    echo "Found clean target, running make clean..."
-    make clean
-else
-    echo "No clean target found. Skipping."
-fi
+
 mkdir -p build/install
 cd build
 
@@ -79,6 +85,7 @@ print_block "Running configure"
   --with-ucx-lib=$UCX_LIB \
   --enable-fast=all,O1 \
   --with-pm=hydra \
+  --with-yaksa=embedded \
   --with-ch4-shmmods=posix \
   --enable-debug=all \
   CPPFLAGS="$CPPFLAGS" \

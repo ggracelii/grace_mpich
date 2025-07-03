@@ -644,6 +644,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_beta(const void *
 
     MPIDI_Coll_calculate_size_shift(count, datatype, &size, &shift);
 
+    // if ((MPL_gpu_attr_is_strict_dev(&send_attr) || MPL_gpu_attr_is_strict_dev(&recv_attr)) &&
+    //     (size <= MPIR_CVAR_CH4_GPU_COLL_SWAP_BUFFER_SZ)) {
     if ((MPL_gpu_attr_is_strict_dev(&send_attr) || MPL_gpu_attr_is_strict_dev(&recv_attr)) &&
         (size <= MPIR_CVAR_CH4_GPU_COLL_SWAP_BUFFER_SZ)) {
         MPIDI_Coll_host_buffer_genq_alloc(sendbuf, recvbuf, count, datatype, &host_sendbuf,
@@ -693,6 +695,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_gamma(const void 
 
     MPIDI_Coll_calculate_size_shift(count, datatype, &size, &shift);
 
+    // if ((MPL_gpu_attr_is_strict_dev(&send_attr) || MPL_gpu_attr_is_strict_dev(&recv_attr)) &&
+    //     (size <= MPIR_CVAR_CH4_GPU_COLL_SWAP_BUFFER_SZ)) {
     if ((MPL_gpu_attr_is_strict_dev(&send_attr) || MPL_gpu_attr_is_strict_dev(&recv_attr)) &&
         (size <= MPIR_CVAR_CH4_GPU_COLL_SWAP_BUFFER_SZ)) {
         MPIDI_Coll_host_buffer_genq_alloc(sendbuf, recvbuf, count, datatype,
