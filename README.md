@@ -1,14 +1,9 @@
-# Grace MPICH with HIP + RCCL Support
+# Grace MPICH
 
-This repository builds a custom version of MPICH that supports GPU-aware collectives using HIP and RCCL.
+### Branches
 
-##  Setup Instructions
+The branch `rccl_allreduce` is the "clean" branch that I'm using for the PR. This involves changes that integrate RCCL's Allreduce backend into MPICH.
 
-### Clone the repository and run build.sh
-```bash
-./build.sh
-```
-This will run `autogen.sh`, creat build and install directories, configure MPICH to be built with RCCL support, and run `make` and `make install`.
+The branch `rccl_comp` includes debugging comments and changes to the composition algorithms. I used this to make my graphs.
 
-### Verification
-Check the `install/bin` directory and ensure you see both `mpicc` and `mpiexec`.
+I don't really know what's going on in this main branch. I used it to fix merge conflicts and stuff but don't use this branch!
