@@ -8,6 +8,7 @@ This repository builds a custom version of MPICH that supports GPU-aware collect
 ```bash
 git clone https://github.com/ggracelii/grace_mpich.git
 cd grace_mpich
+git checkout rccl_comp
 ./autogen.sh
 ```
 
