@@ -10,9 +10,15 @@
  * using a CCL (e.g., NCCL, RCCL etc.) to
  * complete the collective operation.
  */
+
+/*
+ * TODO: Decide how to handle MPIR_CVAR_ALLREDUCE_CCL_auto when multiple CCL backends are enabled.
+ * We cannot support two separate CCL_auto cases if both NCCL and RCCL are built into MPICH.
+ */
+
 int MPIR_Allreduce_intra_ccl(const void *sendbuf, void *recvbuf, MPI_Aint count,
                              MPI_Datatype datatype, MPI_Op op, MPIR_Comm * comm_ptr, int ccl,
-                             MPIR_Errflag_t errflag)
+                             int coll_attr)
 {
     int rank_ = comm_ptr->rank;
     if (rank_ == 0) { printf("*                       MPIR_Allreduce_intra_ccl called\n"); fflush(stdout); }
@@ -40,10 +46,8 @@ int MPIR_Allreduce_intra_ccl(const void *sendbuf, void *recvbuf, MPI_Aint count,
         }
         break;
 #endif
-
-    default:
-        if (rank_ == 0) { printf(">> MPIR_Allreduce_intra_ccl: Unknown CCL backend, falling back\n"); fflush(stdout); }
-        goto fallback;
+        default:
+            goto fallback;
     }
 
 fallback:

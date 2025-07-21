@@ -14,14 +14,12 @@ int MPIR_TSP_Ialltoallv_sched_intra_inplace(const void *sendbuf, const MPI_Aint 
                                             MPIR_Comm * comm, MPIR_TSP_sched_t sched)
 {
     int mpi_errno = MPI_SUCCESS;
-    size_t recv_extent;
+    MPI_Aint recv_extent;
     MPI_Aint recv_lb, true_extent;
     int nranks, rank, nvtcs;
     int i, dst, send_id, recv_id, dtcopy_id = -1, vtcs[2];
     void *tmp_buf = NULL;
     int tag = 0;
-    MPIR_Errflag_t errflag ATTRIBUTE((unused)) = MPIR_ERR_NONE;
-
     MPIR_FUNC_ENTER;
 
     /* For correctness, transport based collectives need to get the

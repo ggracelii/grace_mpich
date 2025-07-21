@@ -17,15 +17,13 @@ int MPIR_TSP_Iallreduce_sched_intra_ring(const void *sendbuf, void *recvbuf, MPI
     int mpi_errno = MPI_SUCCESS;
     int i, src, dst;
     int nranks, is_inplace, rank;
-    size_t extent;
+    MPI_Aint extent;
     MPI_Aint lb, true_extent;
     MPI_Aint *cnts, *displs;
     int recv_id, *reduce_id, nvtcs, vtcs;
     int send_rank, recv_rank, total_count;
     void *tmpbuf;
     int tag, vtx_id;
-    MPIR_Errflag_t errflag ATTRIBUTE((unused)) = MPIR_ERR_NONE;
-
     MPIR_FUNC_ENTER;
     MPIR_CHKLMEM_DECL();
 

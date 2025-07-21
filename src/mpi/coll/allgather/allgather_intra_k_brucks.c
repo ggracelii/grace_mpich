@@ -23,7 +23,7 @@ int
 MPIR_Allgather_intra_k_brucks(const void *sendbuf, MPI_Aint sendcount,
                               MPI_Datatype sendtype, void *recvbuf,
                               MPI_Aint recvcount, MPI_Datatype recvtype, MPIR_Comm * comm, int k,
-                              MPIR_Errflag_t errflag)
+                              int coll_attr)
 {
     int mpi_errno = MPI_SUCCESS;
     int i, j;
@@ -105,9 +105,7 @@ MPIR_Allgather_intra_k_brucks(const void *sendbuf, MPI_Aint sendcount,
     } else if (!is_inplace) {
         mpi_errno = MPIR_Localcopy(sendbuf, sendcount, sendtype, tmp_recvbuf, recvcount, recvtype);
     }
-    if (mpi_errno) {
-        MPIR_ERR_POP(mpi_errno);
-    }
+    MPIR_ERR_CHECK(mpi_errno);
 
     /* All following sends/recvs and copies depend on this dtcopy */
 
@@ -153,7 +151,7 @@ MPIR_Allgather_intra_k_brucks(const void *sendbuf, MPI_Aint sendcount,
             /* Send from the start of recv till `count` amount of data. */
             mpi_errno =
                 MPIC_Isend(tmp_recvbuf, count, recvtype, dst, MPIR_ALLGATHER_TAG, comm,
-                           &reqs[num_reqs++], errflag);
+                           &reqs[num_reqs++], coll_attr);
             MPIR_ERR_CHECK(mpi_errno);
 
             MPL_DBG_MSG_FMT(MPIR_DBG_COLL, VERBOSE, (MPL_DBG_FDEST,
@@ -171,16 +169,12 @@ MPIR_Allgather_intra_k_brucks(const void *sendbuf, MPI_Aint sendcount,
             MPIR_Localcopy((char *) tmp_recvbuf + (size - rank) * recvcount * recvtype_extent,
                            rank * recvcount, recvtype, (char *) recvbuf, rank * recvcount,
                            recvtype);
-        if (mpi_errno) {
-            MPIR_ERR_POP(mpi_errno);
-        }
+        MPIR_ERR_CHECK(mpi_errno);
 
         mpi_errno = MPIR_Localcopy((char *) tmp_recvbuf, (size - rank) * recvcount, recvtype,
                                    (char *) recvbuf + rank * recvcount * recvtype_extent,
                                    (size - rank) * recvcount, recvtype);
-        if (mpi_errno) {
-            MPIR_ERR_POP(mpi_errno);
-        }
+        MPIR_ERR_CHECK(mpi_errno);
     }
 
     if (rank != 0)

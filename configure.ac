@@ -1646,15 +1646,10 @@ elif test "$with_pmi" = "pmix" ; then
 elif test "$with_pmilib" = "default" -o "$with_pmilib" = "mpich" -o "$with_pmilib" = "install"; then
     enable_pmi1="yes"
     enable_pmi2="yes"
-    enable_pmix="yes"
     # mpich's libpmi support both PMI1 and PMI2 unless 3rd party pmi is loaded
     if test "$pac_have_pmi1" = "yes" -o "$pac_have_pmi2" = "yes" ; then
         enable_pmi1="no"
         enable_pmi2="no"
-    fi
-    # use PMIx client in libpmi unless an external library is configured
-    if test "$pac_have_pmix" = "yes" ; then
-        enable_pmix="no"
     fi
 fi
 
@@ -1672,9 +1667,6 @@ if test "$pac_3rd_party_pmi" = "yes" ; then
         AC_CHECK_MEMBER([PMI2_keyval_t.key], [], [
             AC_DEFINE([MISSING_PMI2_KEYVAL_T], 1, [Define if PMI2_KEYVAL_T is missing])
         ],[[#include "pmi2.h"]])
-        AC_CHECK_FUNCS([PMI2_Set_threaded],[
-            AC_DEFINE([HAVE_PMI2_SET_THREADED], 1, [Define if PMI2_Set_threaded exist])
-        ])
     fi
     PAC_POP_FLAG([LIBS])
 fi
@@ -3932,7 +3924,7 @@ if test $GPU_SUPPORT = "CUDA" ; then
 fi
 
 if test $GPU_SUPPORT = "HIP" ; then
-    PAC_CHECK_HEADER_LIB_OPTIONAL([rccl], [rccl.h], [rccl], [ncclCommInitAll])
+    PAC_CHECK_HEADER_LIB_OPTIONAL([rccl], [rccl/rccl.h], [rccl], [ncclCommInitAll],, [-D__HIP_PLATFORM_AMD__])
     if test "$pac_have_rccl" = "yes" ; then
         have_ccl=yes
         AC_DEFINE([ENABLE_RCCL], 1, [define if have librccl])

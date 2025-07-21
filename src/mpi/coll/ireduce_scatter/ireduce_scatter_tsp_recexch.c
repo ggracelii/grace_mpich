@@ -40,7 +40,7 @@ Input Parameters:
 int MPIR_TSP_Ireduce_scatter_sched_intra_recexch_step2(void *tmp_results, void *tmp_recvbuf,
                                                        const MPI_Aint * recvcounts,
                                                        MPI_Aint * displs, MPI_Datatype datatype,
-                                                       MPI_Op op, size_t extent, int tag,
+                                                       MPI_Op op, MPI_Aint extent, int tag,
                                                        MPIR_Comm * comm, int k, int is_dist_halving,
                                                        int step2_nphases, int **step2_nbrs,
                                                        int rank, int nranks, int sink_id,
@@ -53,8 +53,6 @@ int MPIR_TSP_Ireduce_scatter_sched_intra_recexch_step2(void *tmp_results, void *
     MPI_Aint send_cnt, recv_cnt, send_offset, recv_offset;
     int nvtcs, vtcs[2];
     int send_id, recv_id, reduce_id = -1;
-    MPIR_Errflag_t errflag ATTRIBUTE((unused)) = MPIR_ERR_NONE;
-
     MPIR_FUNC_ENTER;
 
     for (x = 0, phase = step2_nphases - 1; phase >= 0; phase--, x++) {
@@ -137,7 +135,7 @@ int MPIR_TSP_Ireduce_scatter_sched_intra_recexch(const void *sendbuf, void *recv
 {
     int mpi_errno = MPI_SUCCESS;
     int is_inplace;
-    size_t extent;
+    MPI_Aint extent;
     MPI_Aint lb, true_extent;
     int step1_sendto = -1, step2_nphases = 0, step1_nrecvs = 0;
     int in_step2;
@@ -150,7 +148,6 @@ int MPIR_TSP_Ireduce_scatter_sched_intra_recexch(const void *sendbuf, void *recv
     void *tmp_recvbuf = NULL, *tmp_results = NULL;
     MPI_Aint *displs;
     int tag, vtx_id;
-    MPIR_Errflag_t errflag ATTRIBUTE((unused)) = MPIR_ERR_NONE;
     MPIR_CHKLMEM_DECL();
 
     MPIR_FUNC_ENTER;
@@ -236,8 +233,7 @@ int MPIR_TSP_Ireduce_scatter_sched_intra_recexch(const void *sendbuf, void *recv
     }
 
     mpi_errno = MPIR_TSP_sched_sink(sched, &sink_id);   /* sink for all the tasks up to end of Step 1 */
-    if (mpi_errno)
-        MPIR_ERR_POP(mpi_errno);
+    MPIR_ERR_CHECK(mpi_errno);
 
     /* Step 2 */
     MPL_DBG_MSG_FMT(MPIR_DBG_COLL, VERBOSE, (MPL_DBG_FDEST, "Start Step2"));

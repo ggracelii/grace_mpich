@@ -16,7 +16,7 @@ int MPIR_Allreduce_intra_tree(const void *sendbuf,
                               MPI_Datatype datatype,
                               MPI_Op op, MPIR_Comm * comm_ptr,
                               int tree_type, int k, int chunk_size,
-                              int buffer_per_child, MPIR_Errflag_t errflag)
+                              int buffer_per_child, int coll_attr)
 {
 
     int rank_ = comm_ptr->rank;
@@ -31,11 +31,11 @@ int MPIR_Allreduce_intra_tree(const void *sendbuf,
 
     MPI_Aint num_chunks, chunk_size_floor, chunk_size_ceil;
     int offset = 0;
-    size_t extent, type_size;
+    MPI_Aint extent, type_size;
     int num_children;
     int root = 0;
     bool is_tree_leaf;
-    int i, j, tag;
+    int i, j;
 
     MPIR_Request **reqs;
     int num_reqs = 0;
@@ -139,9 +139,6 @@ int MPIR_Allreduce_intra_tree(const void *sendbuf,
         void *reduce_address = (char *) reduce_buffer + offset * extent;
         MPIR_ERR_CHKANDJUMP(!reduce_address, mpi_errno, MPI_ERR_OTHER, "**nomem");
 
-        mpi_errno = MPIR_Sched_next_tag(comm_ptr, &tag);
-        MPIR_ERR_CHECK(mpi_errno);
-
         for (i = 0; i < num_children; i++) {
             void *recv_address = (char *) child_buffer[i] + offset * extent;
             MPIR_ERR_CHKANDJUMP(!recv_address, mpi_errno, MPI_ERR_OTHER, "**nomem");
@@ -172,7 +169,7 @@ int MPIR_Allreduce_intra_tree(const void *sendbuf,
         if (rank != root) {     /* send data to the parent */
             mpi_errno =
                 MPIC_Isend(reduce_address, msgsize, datatype, my_tree.parent, MPIR_ALLREDUCE_TAG,
-                           comm_ptr, &reqs[num_reqs++], errflag);
+                           comm_ptr, &reqs[num_reqs++], coll_attr);
             MPIR_ERR_CHECK(mpi_errno);
         }
 
@@ -189,7 +186,7 @@ int MPIR_Allreduce_intra_tree(const void *sendbuf,
                 MPIR_Assert(child != 0);
                 mpi_errno = MPIC_Isend(reduce_address, msgsize,
                                        datatype, child,
-                                       MPIR_ALLREDUCE_TAG, comm_ptr, &reqs[num_reqs++], errflag);
+                                       MPIR_ALLREDUCE_TAG, comm_ptr, &reqs[num_reqs++], coll_attr);
                 MPIR_ERR_CHECK(mpi_errno);
             }
         }

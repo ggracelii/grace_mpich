@@ -8,16 +8,21 @@
 
 #include "mpiimpl.h"
 
+typedef struct MPIR_Pset {
+    char *name;
+    struct MPIR_Group *group;
+} MPIR_Pset;
+
 /* Session structure */
 struct MPIR_Session {
     MPIR_OBJECT_HEADER;
     MPID_Thread_mutex_t mutex;
     MPIR_Errhandler *errhandler;
     struct MPII_BsendBuffer *bsendbuffer;       /* for MPI_Session_attach_buffer */
-    int requested_thread_level;
-    int thread_level;
     bool strict_finalize;
     char *memory_alloc_kinds;
+    int num_psets;
+    struct MPIR_Pset *psets;
 };
 
 extern MPIR_Object_alloc_t MPIR_Session_mem;
@@ -33,7 +38,7 @@ extern MPIR_Session MPIR_Session_direct[];
 #define MPIR_Session_release_ref(_session, _inuse) \
     do { MPIR_Object_release_ref(_session, _inuse); } while (0)
 
-int MPIR_Session_create(MPIR_Session **, int);
+int MPIR_Session_create(MPIR_Session ** p_session_ptr);
 int MPIR_Session_release(MPIR_Session * session_prt);
 
 /* thread level util */
