@@ -11,8 +11,8 @@ print_block() {
 }
 
 # Step 0: Run autogen.sh
-print_block "Skipping autogen.sh"
-# ./autogen.sh
+print_block "Running autogen.sh"
+./autogen.sh
 
 # Step 1: Create and enter build/install directory
 print_block "Preparing build directory"
