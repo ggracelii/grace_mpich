@@ -34,7 +34,7 @@ static int MPIR_RCCLcomm_init(MPIR_Comm * comm_ptr, int rank)
     }
 
     mpi_errno = MPIR_Bcast_impl(&(rcclcomm->id), sizeof(rcclcomm->id), MPIR_UINT8, 0, comm_ptr,
-                                MPIR_ERR_NONE);
+                                MPI_SUCCESS);
     MPIR_ERR_CHECK(mpi_errno);
 
     ret = hipStreamCreate(&(rcclcomm->stream));
@@ -228,7 +228,7 @@ int MPIR_RCCL_check_requirements_red_op(const void *sendbuf, void *recvbuf, MPI_
 }
 
 int MPIR_RCCL_Allreduce(const void *sendbuf, void *recvbuf, MPI_Aint count, MPI_Datatype datatype,
-                        MPI_Op op, MPIR_Comm * comm_ptr, MPIR_Errflag_t errflag)
+                        MPI_Op op, MPIR_Comm * comm_ptr, int coll_attr)
 {
     int mpi_errno = MPI_SUCCESS;
     hipError_t ret;

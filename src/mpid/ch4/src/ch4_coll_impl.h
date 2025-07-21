@@ -888,7 +888,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_delta(const void 
         if (MPIDI_COMM(comm_ptr, intra_node_leads_comm) != NULL) {
 #ifndef MPIDI_CH4_DIRECT_NETMOD
             if (rank == 0) { printf("        Calling SHM barrier on intra_node_leads_comm\n"); fflush(stdout); }
-            mpi_errno = MPIDI_SHM_mpi_barrier(MPIDI_COMM(comm_ptr, intra_node_leads_comm), ercoll_attrrflag);
+            mpi_errno = MPIDI_SHM_mpi_barrier(MPIDI_COMM(comm_ptr, intra_node_leads_comm), coll_attr);
 #else
             if (rank == 0) { printf("        Calling NM barrier on intra_node_leads_comm\n"); fflush(stdout); }
             mpi_errno = MPIDI_NM_mpi_barrier(MPIDI_COMM(comm_ptr, intra_node_leads_comm), coll_attr);
