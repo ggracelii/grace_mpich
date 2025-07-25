@@ -18,7 +18,8 @@
  * Static helper functions
  */
 
-static int MPIR_RCCLcomm_init(MPIR_Comm * comm_ptr, int rank)
+ /* og init
+ static int MPIR_RCCLcomm_init(MPIR_Comm * comm_ptr, int rank)
 {
     int mpi_errno = MPI_SUCCESS;
     int comm_size = comm_ptr->local_size;
@@ -43,17 +44,47 @@ static int MPIR_RCCLcomm_init(MPIR_Comm * comm_ptr, int rank)
     n_ret = ncclCommInitRank(&(rcclcomm->rcclcomm), comm_size, rcclcomm->id, rank);
     NCCL_ERR_CHECK(n_ret);
 
-    /* Dummy RCCL usage */
-    // if (rank == 0) {
-    //     void *dummy_ptr;
-    //     ret = hipMalloc(&dummy_ptr, 1024);
-    //     if (ret != hipSuccess) {
-    //         printf("hipMalloc failed in RCCL init: %s\n", hipGetErrorString(ret));
-    //     } else {
-    //         printf("hipMalloc succeeded in RCCL init.\n");
-    //         hipFree(dummy_ptr);
-    //     }
-    // }
+    comm_ptr->cclcomm->rcclcomm = rcclcomm;
+
+  fn_exit:
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
+*/
+
+/* init with 4 streams */
+static int MPIR_RCCLcomm_init(MPIR_Comm * comm_ptr, int rank)
+{
+    int mpi_errno = MPI_SUCCESS;
+    int comm_size = comm_ptr->local_size;
+    hipError_t ret;
+    ncclResult_t n_ret;
+
+    MPIR_RCCLcomm *rcclcomm;
+    rcclcomm = MPL_malloc(sizeof(MPIR_RCCLcomm), MPL_MEM_OTHER);
+    MPIR_ERR_CHKANDJUMP(!rcclcomm, mpi_errno, MPI_ERR_OTHER, "**nomem");
+
+    if (rank == 0) {
+        ncclGetUniqueId(&(rcclcomm->id));
+    }
+
+    mpi_errno = MPIR_Bcast_impl(&(rcclcomm->id), sizeof(rcclcomm->id), MPIR_UINT8, 0, comm_ptr,
+                                MPI_SUCCESS);
+    MPIR_ERR_CHECK(mpi_errno);
+
+    ret = hipStreamCreate(&(rcclcomm->stream));
+    HIP_ERR_CHECK(ret);
+
+    rcclcomm->stream_count = MPIR_RCCL_MAX_STREAMS;
+    rcclcomm->streams_initialized = true;
+    for (int i = 0; i < rcclcomm->stream_count; ++i) {
+        ret = hipStreamCreateWithFlags(&(rcclcomm->split_streams[i]), hipStreamNonBlocking);
+        HIP_ERR_CHECK(ret);
+    }
+
+    n_ret = ncclCommInitRank(&(rcclcomm->rcclcomm), comm_size, rcclcomm->id, rank);
+    NCCL_ERR_CHECK(n_ret);
 
     comm_ptr->cclcomm->rcclcomm = rcclcomm;
 
@@ -227,6 +258,7 @@ int MPIR_RCCL_check_requirements_red_op(const void *sendbuf, void *recvbuf, MPI_
     return 1;
 }
 
+/* og allreduce
 int MPIR_RCCL_Allreduce(const void *sendbuf, void *recvbuf, MPI_Aint count, MPI_Datatype datatype,
                         MPI_Op op, MPIR_Comm * comm_ptr, int coll_attr)
 {
@@ -246,14 +278,6 @@ int MPIR_RCCL_Allreduce(const void *sendbuf, void *recvbuf, MPI_Aint count, MPI_
     MPIR_ERR_CHECK(mpi_errno);
     MPIR_RCCLcomm *rcclcomm = comm_ptr->cclcomm->rcclcomm;
 
-    /* Dummy call to test HIP device */
-    // hipDeviceProp_t prop;
-    // ret = hipGetDeviceProperties(&prop, 0);
-    // HIP_ERR_CHECK(ret);
-    // if (comm_ptr->rank == 0) {
-    //     printf("RCCL Allreduce using HIP device: %s\n", prop.name);
-    // }
-
     MPL_pointer_attr_t recv_attr;
     mpi_errno = MPL_gpu_query_pointer_attr(recvbuf, &recv_attr);
     MPIR_ERR_CHECK(mpi_errno);
@@ -267,8 +291,6 @@ int MPIR_RCCL_Allreduce(const void *sendbuf, void *recvbuf, MPI_Aint count, MPI_
     n_ret = ncclAllReduce(sendbuf, recvbuf, count, rcclDatatype, rcclOp, rcclcomm->rcclcomm,
                         rcclcomm->stream);
     NCCL_ERR_CHECK(n_ret);
-
-    /* Ensure the communication completes */
     ret = hipStreamSynchronize(rcclcomm->stream);
     HIP_ERR_CHECK(ret);
 
@@ -277,7 +299,74 @@ int MPIR_RCCL_Allreduce(const void *sendbuf, void *recvbuf, MPI_Aint count, MPI_
   fn_fail:
     goto fn_exit;
 }
+*/
 
+/* splitting into 4 streams */
+int MPIR_RCCL_Allreduce(const void *sendbuf, void *recvbuf, MPI_Aint count,
+                        MPI_Datatype datatype, MPI_Op op,
+                        MPIR_Comm *comm_ptr, int coll_attr)
+{
+    int mpi_errno = MPI_SUCCESS;
+    hipError_t ret;
+    ncclResult_t n_ret;
+
+    ncclRedOp_t rcclOp;
+    mpi_errno = MPIR_RCCL_get_red_op(op, &rcclOp);
+    MPIR_ERR_CHECK(mpi_errno);
+
+    ncclDataType_t rcclDatatype;
+    mpi_errno = MPIR_RCCL_get_datatype(datatype, &rcclDatatype);
+    MPIR_ERR_CHECK(mpi_errno);
+
+    mpi_errno = MPIR_RCCL_check_init_and_init(comm_ptr, comm_ptr->rank);
+    MPIR_ERR_CHECK(mpi_errno);
+    MPIR_RCCLcomm *rcclcomm = comm_ptr->cclcomm->rcclcomm;
+
+    MPL_pointer_attr_t recv_attr;
+    mpi_errno = MPL_gpu_query_pointer_attr(recvbuf, &recv_attr);
+    MPIR_ERR_CHECK(mpi_errno);
+
+    ret = hipSetDevice(recv_attr.device_attr.device);
+    HIP_ERR_CHECK(ret);
+
+    if (sendbuf == MPI_IN_PLACE)
+        sendbuf = recvbuf;
+
+    int stream_count = rcclcomm->stream_count;
+    hipStream_t *streams = rcclcomm->split_streams;
+
+    MPI_Aint type_size;
+    MPIR_Datatype_get_size_macro(datatype, type_size);
+    MPI_Aint chunk_count = (count + stream_count - 1) / stream_count;
+
+    for (int i = 0; i < stream_count; ++i) {
+        MPI_Aint offset = i * chunk_count;
+        MPI_Aint this_chunk = MPL_MIN(chunk_count, count - offset);
+        if (this_chunk <= 0) continue;
+
+        const void *send_ptr = (const char *)sendbuf + offset * type_size;
+        void *recv_ptr = (char *)recvbuf + offset * type_size;
+
+        printf("RCCL AllReduce: Processing chunk %d/%d (count=%ld)\n",
+            i + 1, stream_count, (long)this_chunk);
+
+        n_ret = ncclAllReduce(send_ptr, recv_ptr, this_chunk, rcclDatatype, rcclOp,
+                            rcclcomm->rcclcomm, streams[i]);
+        NCCL_ERR_CHECK(n_ret);
+    }
+
+    for (int i = 0; i < stream_count; ++i) {
+        ret = hipStreamSynchronize(streams[i]);
+        HIP_ERR_CHECK(ret);
+    }
+
+  fn_exit:
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
+
+/* og free 
 int MPIR_RCCLcomm_free(MPIR_Comm * comm)
 {
     int mpi_errno = MPI_SUCCESS;
@@ -289,6 +378,42 @@ int MPIR_RCCLcomm_free(MPIR_Comm * comm)
 
     ret = hipStreamSynchronize(cclcomm->rcclcomm->stream);
     HIP_ERR_CHECK(ret);
+    n_ret = ncclCommDestroy(cclcomm->rcclcomm->rcclcomm);
+    NCCL_ERR_CHECK(n_ret);
+    ret = hipStreamDestroy(cclcomm->rcclcomm->stream);
+    HIP_ERR_CHECK(ret);
+
+    MPL_free(cclcomm->rcclcomm);
+
+  fn_exit:
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
+*/ 
+
+/* 4 streams free */
+int MPIR_RCCLcomm_free(MPIR_Comm * comm)
+{
+    int mpi_errno = MPI_SUCCESS;
+    hipError_t ret;
+    ncclResult_t n_ret;
+
+    MPIR_Assert(comm->cclcomm->rcclcomm);
+    MPIR_CCLcomm *cclcomm = comm->cclcomm;
+
+    ret = hipStreamSynchronize(cclcomm->rcclcomm->stream);
+    HIP_ERR_CHECK(ret);
+
+    if (cclcomm->rcclcomm->streams_initialized) {
+        for (int i = 0; i < cclcomm->rcclcomm->stream_count; ++i) {
+            ret = hipStreamSynchronize(cclcomm->rcclcomm->split_streams[i]);
+            HIP_ERR_CHECK(ret);
+            ret = hipStreamDestroy(cclcomm->rcclcomm->split_streams[i]);
+            HIP_ERR_CHECK(ret);
+        }
+    }
+
     n_ret = ncclCommDestroy(cclcomm->rcclcomm->rcclcomm);
     NCCL_ERR_CHECK(n_ret);
     ret = hipStreamDestroy(cclcomm->rcclcomm->stream);

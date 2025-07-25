@@ -641,15 +641,13 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_alpha(const void 
     goto fn_exit;
 }
 
+/* original
 MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_beta(const void *sendbuf,
                                                                     void *recvbuf, MPI_Aint count,
                                                                     MPI_Datatype datatype,
                                                                     MPI_Op op,
                                                                     MPIR_Comm * comm, int coll_attr)
 {
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    if (rank == 0) { printf("Entered beta algorithm\n"); fflush(stdout); }
     int mpi_errno = MPI_SUCCESS;
     void *in_recvbuf = recvbuf;
     void *host_sendbuf = NULL;
@@ -663,22 +661,16 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_beta(const void *
 
     MPIDI_Coll_calculate_size_shift(count, datatype, &size, &shift);
 
-    // if ((MPL_gpu_attr_is_strict_dev(&send_attr) || MPL_gpu_attr_is_strict_dev(&recv_attr)) &&
-    //     (size <= MPIR_CVAR_CH4_GPU_COLL_SWAP_BUFFER_SZ)) {
     if ((MPL_gpu_attr_is_strict_dev(&send_attr) || MPL_gpu_attr_is_strict_dev(&recv_attr)) &&
         (size <= MPIR_CVAR_CH4_GPU_COLL_SWAP_BUFFER_SZ) && false) {
-        if (rank == 0) { printf("    Allocating host buffers - beta with size: %ld\n", size); fflush(stdout); }
         MPIDI_Coll_host_buffer_genq_alloc(sendbuf, recvbuf, count, datatype, &host_sendbuf,
                                         &host_recvbuf, send_attr, recv_attr, shift);
         if (host_sendbuf != NULL)
             sendbuf = host_sendbuf;
         if (host_recvbuf != NULL)
             recvbuf = host_recvbuf;
-    } else {
-        if (rank == 0) { printf("    Not allocating host buffers - beta with size: %ld\n", size); fflush(stdout); }
     }
 
-    if (rank == 0) { printf("    Calling NM allreduce\n"); fflush(stdout); }
     mpi_errno = MPIDI_NM_mpi_allreduce(sendbuf, recvbuf, count, datatype, op, comm, coll_attr);
     MPIR_ERR_CHECK(mpi_errno);
 
@@ -696,6 +688,192 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_beta(const void *
     return mpi_errno;
   fn_fail:
     goto fn_exit;
+}
+*/
+
+/* Pipeline with 1 communicator, 4 chunks 
+MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_beta(const void *sendbuf,
+                                                                    void *recvbuf, MPI_Aint count,
+                                                                    MPI_Datatype datatype,
+                                                                    MPI_Op op,
+                                                                    MPIR_Comm * comm, int coll_attr)
+{
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    if (rank == 0) { printf("Entered beta algorithm (4 even chunks)\n"); fflush(stdout); }
+
+    int mpi_errno = MPI_SUCCESS;
+    void *in_recvbuf = recvbuf;
+    void *host_sendbuf = NULL;
+    void *host_recvbuf = NULL;
+    MPL_pointer_attr_t send_attr;
+    MPL_pointer_attr_t recv_attr;
+    MPI_Aint size, shift;
+
+    MPIR_GPU_query_pointer_attr(sendbuf, &send_attr);
+    MPIR_GPU_query_pointer_attr(recvbuf, &recv_attr);
+
+    MPIDI_Coll_calculate_size_shift(count, datatype, &size, &shift);
+
+    if ((MPL_gpu_attr_is_strict_dev(&send_attr) || MPL_gpu_attr_is_strict_dev(&recv_attr)) &&
+        (size <= MPIR_CVAR_CH4_GPU_COLL_SWAP_BUFFER_SZ) && false) {
+        if (rank == 0) { printf("    Allocating host buffers - beta with size: %ld\n", size); fflush(stdout); }
+        MPIDI_Coll_host_buffer_genq_alloc(sendbuf, recvbuf, count, datatype, &host_sendbuf,
+                                          &host_recvbuf, send_attr, recv_attr, shift);
+        if (host_sendbuf != NULL)
+            sendbuf = host_sendbuf;
+        if (host_recvbuf != NULL)
+            recvbuf = host_recvbuf;
+    } else {
+        if (rank == 0) { printf("    Not allocating host buffers - beta with size: %ld\n", size); fflush(stdout); }
+    }
+
+    MPI_Aint type_size;
+    MPIR_Datatype_get_size_macro(datatype, type_size);
+
+    const int n_chunks = 4;
+    MPI_Aint chunk_count = (count + n_chunks - 1) / n_chunks;
+
+    char *send_base = (char *)(host_sendbuf ? host_sendbuf : sendbuf);
+    char *recv_base = (char *)(host_recvbuf ? host_recvbuf : recvbuf);
+
+    for (int i = 0; i < n_chunks; ++i) {
+        MPI_Aint offset_count = i * chunk_count;
+        if (offset_count >= count)
+            break;
+
+        MPI_Aint this_chunk_count = MPL_MIN(chunk_count, count - offset_count);
+        MPI_Aint offset_bytes = offset_count * type_size;
+
+        const void *send_chunk = send_base + offset_bytes;
+        void *recv_chunk = recv_base + offset_bytes;
+
+        if (rank == 0)
+            printf("  Processing chunk %d/%d, count=%ld\n", i + 1, n_chunks, (long)this_chunk_count);
+
+        mpi_errno = MPIDI_NM_mpi_allreduce(send_chunk, recv_chunk, this_chunk_count,
+                                           datatype, op, comm, coll_attr);
+        MPIR_ERR_CHECK(mpi_errno);
+    }
+
+    if (host_recvbuf != NULL) {
+        recvbuf = in_recvbuf;
+        mpi_errno = MPIR_Localcopy_gpu(host_recvbuf, count, datatype, 0, NULL,
+                                       recvbuf, count, datatype, 0, &recv_attr,
+                                       MPL_GPU_COPY_DIRECTION_NONE,
+                                       MPL_GPU_ENGINE_TYPE_COPY_HIGH_BANDWIDTH, true);
+        MPIR_ERR_CHECK(mpi_errno);
+        MPIDI_Coll_host_buffer_genq_free(host_sendbuf, host_recvbuf, shift);
+    }
+
+  fn_exit:
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
+*/
+
+/* Pipeline with 4 pre-initialized communicators */
+MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_beta(const void *sendbuf,
+                                                                    void *recvbuf, MPI_Aint count,
+                                                                    MPI_Datatype datatype,
+                                                                    MPI_Op op,
+                                                                    MPIR_Comm *comm, int coll_attr)
+{
+    int rank, world_size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+    if (rank == 0) printf("Entered beta pipelined allreduce with hardcoded 4 subcomms\n");
+
+    int mpi_errno = MPI_SUCCESS;
+    void *in_recvbuf = recvbuf;
+    void *host_sendbuf = NULL;
+    void *host_recvbuf = NULL;
+    MPL_pointer_attr_t send_attr, recv_attr;
+    MPI_Aint size, shift;
+    MPIR_Comm *subcomm_ptr;
+
+    MPIR_GPU_query_pointer_attr(sendbuf, &send_attr);
+    MPIR_GPU_query_pointer_attr(recvbuf, &recv_attr);
+
+    MPIDI_Coll_calculate_size_shift(count, datatype, &size, &shift);
+
+    if ((MPL_gpu_attr_is_strict_dev(&send_attr) || MPL_gpu_attr_is_strict_dev(&recv_attr)) &&
+        (size <= MPIR_CVAR_CH4_GPU_COLL_SWAP_BUFFER_SZ) && false) {
+        if (rank == 0) { printf("    Allocating host buffers - beta with size: %ld\n", size); fflush(stdout); }
+        MPIDI_Coll_host_buffer_genq_alloc(sendbuf, recvbuf, count, datatype, &host_sendbuf,
+                                          &host_recvbuf, send_attr, recv_attr, shift);
+        if (host_sendbuf != NULL)
+            sendbuf = host_sendbuf;
+        if (host_recvbuf != NULL)
+            recvbuf = host_recvbuf;
+    } else {
+        if (rank == 0) { printf("    Not allocating host buffers - beta with size: %ld\n", size); fflush(stdout); }
+    }
+    
+    if (!comm || !comm->cclcomm || !comm->cclcomm->subcomms_initialized) {
+        int err = MPIR_CCLcomm_init(comm);
+        MPIR_ERR_CHECK(err);
+    }
+
+    const int n_comm = comm->cclcomm->subcomm_count;
+    MPI_Comm *subcomms = comm->cclcomm->subcomms;
+
+    MPI_Aint type_size;
+    MPIR_Datatype_get_size_macro(datatype, type_size);
+    const MPI_Aint chunk_bytes = 131072;
+    MPI_Aint chunk_count = chunk_bytes / type_size;
+
+    MPI_Aint remaining = count;
+    MPI_Aint offset_count = 0;
+    int chunk_idx = 0;
+    int max_chunks = (count + chunk_count - 1) / chunk_count;
+
+    char *send_base = (char *)(host_sendbuf ? host_sendbuf : sendbuf);
+    char *recv_base = (char *)(host_recvbuf ? host_recvbuf : recvbuf);
+
+    while (remaining > 0) {
+        MPI_Aint this_chunk_count = MPL_MIN(remaining, chunk_count);
+        MPI_Aint offset = offset_count * type_size;
+
+        const void *send_chunk = send_base + offset;
+        void *recv_chunk = recv_base + offset;
+
+        int comm_id = chunk_idx % n_comm;
+        MPI_Comm subcomm = subcomms[comm_id];
+
+        if (subcomm != MPI_COMM_NULL) {
+            printf("  Launching chunk %d, count=%ld on subcomm[%d] out of max_chunks=%d\n",
+                       chunk_idx + 1, this_chunk_count, comm_id, max_chunks);
+
+            MPIR_Comm_get_ptr(subcomm, subcomm_ptr);
+            mpi_errno = MPIDI_NM_mpi_allreduce(send_chunk, recv_chunk,
+                                                this_chunk_count, datatype, op,
+                                                subcomm_ptr, coll_attr);
+            MPIR_ERR_CHECK(mpi_errno);
+        }
+
+        offset_count += this_chunk_count;
+        remaining -= this_chunk_count;
+        chunk_idx++;
+    }
+
+    MPIR_ERR_CHECK(mpi_errno);
+
+    if (host_recvbuf != NULL) {
+        recvbuf = in_recvbuf;
+        mpi_errno = MPIR_Localcopy_gpu(host_recvbuf, count, datatype, 0, NULL,
+                                       recvbuf, count, datatype, 0, &recv_attr,
+                                       MPL_GPU_COPY_DIRECTION_NONE,
+                                       MPL_GPU_ENGINE_TYPE_COPY_HIGH_BANDWIDTH, true);
+        MPIR_ERR_CHECK(mpi_errno);
+        MPIDI_Coll_host_buffer_genq_free(host_sendbuf, host_recvbuf, shift);
+    }
+
+    fn_exit:
+        return mpi_errno;
+    fn_fail:
+        goto fn_exit;
 }
 
 MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_gamma(const void *sendbuf,

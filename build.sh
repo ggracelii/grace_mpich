@@ -68,10 +68,9 @@ export HIPCCFLAGS="--offload-arch=${GFX_ARCH}"
 
 # Standard build flags
 export CPPFLAGS="-DENABLE_CCLCOMM -DENABLE_RCCL -I${HIP_INC} -I${RCCL_INC} -I${UCX_INC}"
-export CFLAGS="-I${HIP_INC} -I${RCCL_INC} -I${UCX_INC}"
-export LDFLAGS="-L${HIP_LIB} -L${RCCL_LIB} -L${UCX_LIB} -Wl,-rpath,${UCX_LIB} -Wl,-rpath,${HIP_LIB}"
-export LIBS="-lrccl -lamdhip64"
-
+export CFLAGS="-pthread -I${HIP_INC} -I${RCCL_INC} -I${UCX_INC}"
+export LDFLAGS="-pthread -L${HIP_LIB} -L${RCCL_LIB} -L${UCX_LIB} -Wl,-rpath,${UCX_LIB} -Wl,-rpath,${HIP_LIB}"
+export LIBS="-lrccl -lamdhip64 -lpthread"
 
 # Step 3: Configure MPICH
 print_block "Running configure"

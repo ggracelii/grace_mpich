@@ -19,16 +19,24 @@ typedef struct MPIR_NCCLcomm {
 
 #ifdef ENABLE_RCCL
 #include <rccl.h>
+#define MPIR_RCCL_MAX_STREAMS 4
 typedef struct MPIR_RCCLcomm {
     ncclUniqueId id;
     ncclComm_t rcclcomm;
     hipStream_t stream;
+    hipStream_t split_streams[MPIR_RCCL_MAX_STREAMS];  // new
+    int stream_count;                                  // new
+    bool streams_initialized;                          // new
 } MPIR_RCCLcomm;
 #endif /*ENABLE_RCCL */
 
+#define N_SUBCOMMS 4
 typedef struct MPIR_CCLcomm {
     MPIR_OBJECT_HEADER;
     MPIR_Comm *comm;
+    MPI_Comm subcomms[N_SUBCOMMS];   // your 4 persistent subcomms
+    int subcomm_count;
+    int subcomms_initialized;
 #ifdef ENABLE_NCCL
     MPIR_NCCLcomm *ncclcomm;
 #endif                          /*ENABLE_NCCL */
