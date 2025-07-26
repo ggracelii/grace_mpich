@@ -76,7 +76,10 @@ static int MPIR_RCCLcomm_init(MPIR_Comm * comm_ptr, int rank)
     ret = hipStreamCreate(&(rcclcomm->stream));
     HIP_ERR_CHECK(ret);
 
-    rcclcomm->stream_count = MPIR_RCCL_MAX_STREAMS;
+    rcclcomm->stream_count = MPIR_CVAR_N_SUBCOMMS;
+    rcclcomm->split_streams = MPL_malloc(sizeof(hipStream_t) * rcclcomm->stream_count, MPL_MEM_OTHER);
+    MPIR_ERR_CHKANDJUMP(!rcclcomm->split_streams, mpi_errno, MPI_ERR_OTHER, "**nomem");
+
     rcclcomm->streams_initialized = true;
     for (int i = 0; i < rcclcomm->stream_count; ++i) {
         ret = hipStreamCreateWithFlags(&(rcclcomm->split_streams[i]), hipStreamNonBlocking);
@@ -318,8 +321,18 @@ int MPIR_RCCL_Allreduce(const void *sendbuf, void *recvbuf, MPI_Aint count,
     mpi_errno = MPIR_RCCL_get_datatype(datatype, &rcclDatatype);
     MPIR_ERR_CHECK(mpi_errno);
 
+    if (!comm_ptr->cclcomm || !comm_ptr->cclcomm->rcclcomm) {
+        mpi_errno = MPIR_CCLcomm_init(comm_ptr);
+        MPIR_ERR_CHECK(mpi_errno);
+    }
+
+    MPIR_Assert(comm_ptr != NULL);
+    MPIR_Assert(comm_ptr->cclcomm != NULL);
+    MPIR_Assert(comm_ptr->cclcomm->rcclcomm != NULL);
+
     mpi_errno = MPIR_RCCL_check_init_and_init(comm_ptr, comm_ptr->rank);
     MPIR_ERR_CHECK(mpi_errno);
+
     MPIR_RCCLcomm *rcclcomm = comm_ptr->cclcomm->rcclcomm;
 
     MPL_pointer_attr_t recv_attr;
@@ -332,14 +345,28 @@ int MPIR_RCCL_Allreduce(const void *sendbuf, void *recvbuf, MPI_Aint count,
     if (sendbuf == MPI_IN_PLACE)
         sendbuf = recvbuf;
 
-    int stream_count = rcclcomm->stream_count;
-    hipStream_t *streams = rcclcomm->split_streams;
+    int stream_count = comm_ptr->cclcomm->subcomm_count;
+    MPIR_Assert(rcclcomm->stream_count == stream_count);
 
     MPI_Aint type_size;
     MPIR_Datatype_get_size_macro(datatype, type_size);
     MPI_Aint chunk_count = (count + stream_count - 1) / stream_count;
 
     for (int i = 0; i < stream_count; ++i) {
+        MPI_Comm subcomm = comm_ptr->cclcomm->subcomms[i];
+        if (subcomm == MPI_COMM_NULL) continue;
+
+        MPIR_Comm *subcomm_ptr;
+        MPIR_Comm_get_ptr(subcomm, subcomm_ptr);
+        MPIR_Assert(subcomm_ptr != NULL);
+        MPIR_Assert(subcomm_ptr->cclcomm != NULL);
+        MPIR_Assert(subcomm_ptr->cclcomm->rcclcomm != NULL);
+
+        mpi_errno = MPIR_RCCL_check_init_and_init(subcomm_ptr, subcomm_ptr->rank);
+        MPIR_ERR_CHECK(mpi_errno);
+
+        hipStream_t stream = subcomm_ptr->cclcomm->rcclcomm->split_streams[i];
+
         MPI_Aint offset = i * chunk_count;
         MPI_Aint this_chunk = MPL_MIN(chunk_count, count - offset);
         if (this_chunk <= 0) continue;
@@ -347,23 +374,32 @@ int MPIR_RCCL_Allreduce(const void *sendbuf, void *recvbuf, MPI_Aint count,
         const void *send_ptr = (const char *)sendbuf + offset * type_size;
         void *recv_ptr = (char *)recvbuf + offset * type_size;
 
-        printf("RCCL AllReduce: Processing chunk %d/%d (count=%ld)\n",
-            i + 1, stream_count, (long)this_chunk);
+        printf("RCCL AllReduce: Processing chunk %d/%d (count=%ld) on subcomm[%d]\n",
+               i + 1, stream_count, (long)this_chunk, i);
 
         n_ret = ncclAllReduce(send_ptr, recv_ptr, this_chunk, rcclDatatype, rcclOp,
-                            rcclcomm->rcclcomm, streams[i]);
+                      ((MPIR_RCCLcomm *)(subcomm_ptr->cclcomm->rcclcomm))->rcclcomm, stream);
         NCCL_ERR_CHECK(n_ret);
     }
 
     for (int i = 0; i < stream_count; ++i) {
-        ret = hipStreamSynchronize(streams[i]);
-        HIP_ERR_CHECK(ret);
+        MPI_Comm subcomm = comm_ptr->cclcomm->subcomms[i];
+        if (subcomm == MPI_COMM_NULL) continue;
+
+        MPIR_Comm *subcomm_ptr;
+        MPIR_Comm_get_ptr(subcomm, subcomm_ptr);
+        MPIR_Assert(subcomm_ptr != NULL);
+        MPIR_Assert(subcomm_ptr->cclcomm != NULL);
+        MPIR_Assert(subcomm_ptr->cclcomm->rcclcomm != NULL);
+
+        hipStream_t stream = subcomm_ptr->cclcomm->rcclcomm->split_streams[i];
+        HIP_ERR_CHECK(hipStreamSynchronize(stream));
     }
 
-  fn_exit:
-    return mpi_errno;
-  fn_fail:
-    goto fn_exit;
+    fn_exit:
+        return mpi_errno;
+    fn_fail:
+        goto fn_exit;
 }
 
 /* og free 

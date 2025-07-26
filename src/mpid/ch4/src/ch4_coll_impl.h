@@ -791,7 +791,6 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_beta(const void *
     void *host_recvbuf = NULL;
     MPL_pointer_attr_t send_attr, recv_attr;
     MPI_Aint size, shift;
-    MPIR_Comm *subcomm_ptr;
 
     MPIR_GPU_query_pointer_attr(sendbuf, &send_attr);
     MPIR_GPU_query_pointer_attr(recvbuf, &recv_attr);
@@ -816,49 +815,40 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_beta(const void *
         MPIR_ERR_CHECK(err);
     }
 
-    const int n_comm = comm->cclcomm->subcomm_count;
+    const int n_comm = MPIR_CVAR_N_SUBCOMMS;
+    MPIR_Assert(comm->cclcomm->subcomm_count >= n_comm);
     MPI_Comm *subcomms = comm->cclcomm->subcomms;
 
     MPI_Aint type_size;
     MPIR_Datatype_get_size_macro(datatype, type_size);
-    const MPI_Aint chunk_bytes = 131072;
-    MPI_Aint chunk_count = chunk_bytes / type_size;
-
-    MPI_Aint remaining = count;
-    MPI_Aint offset_count = 0;
-    int chunk_idx = 0;
-    int max_chunks = (count + chunk_count - 1) / chunk_count;
+    MPI_Aint chunk_count = (count + n_comm - 1) / n_comm;
 
     char *send_base = (char *)(host_sendbuf ? host_sendbuf : sendbuf);
     char *recv_base = (char *)(host_recvbuf ? host_recvbuf : recvbuf);
 
-    while (remaining > 0) {
-        MPI_Aint this_chunk_count = MPL_MIN(remaining, chunk_count);
-        MPI_Aint offset = offset_count * type_size;
+    for (int i = 0; i < n_comm; i++) {
+        MPI_Aint offset = i * chunk_count;
+        if (offset >= count)
+            break;
 
-        const void *send_chunk = send_base + offset;
-        void *recv_chunk = recv_base + offset;
+        MPI_Aint this_chunk_count = MPL_MIN(chunk_count, count - offset);
+        const void *send_chunk = send_base + offset * type_size;
+        void *recv_chunk = recv_base + offset * type_size;
 
-        int comm_id = chunk_idx % n_comm;
-        MPI_Comm subcomm = subcomms[comm_id];
-
+        MPI_Comm subcomm = subcomms[i];
         if (subcomm != MPI_COMM_NULL) {
-            printf("  Launching chunk %d, count=%ld on subcomm[%d] out of max_chunks=%d\n",
-                       chunk_idx + 1, this_chunk_count, comm_id, max_chunks);
+            printf("  Launching chunk %d, count=%ld on subcomm[%d]\n",
+                   i + 1, this_chunk_count, i);
 
+            MPIR_Comm *subcomm_ptr;
             MPIR_Comm_get_ptr(subcomm, subcomm_ptr);
+
             mpi_errno = MPIDI_NM_mpi_allreduce(send_chunk, recv_chunk,
-                                                this_chunk_count, datatype, op,
-                                                subcomm_ptr, coll_attr);
+                                               this_chunk_count, datatype, op,
+                                               subcomm_ptr, coll_attr);
             MPIR_ERR_CHECK(mpi_errno);
         }
-
-        offset_count += this_chunk_count;
-        remaining -= this_chunk_count;
-        chunk_idx++;
     }
-
-    MPIR_ERR_CHECK(mpi_errno);
 
     if (host_recvbuf != NULL) {
         recvbuf = in_recvbuf;
@@ -870,10 +860,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_beta(const void *
         MPIDI_Coll_host_buffer_genq_free(host_sendbuf, host_recvbuf, shift);
     }
 
-    fn_exit:
-        return mpi_errno;
-    fn_fail:
-        goto fn_exit;
+fn_exit:
+    return mpi_errno;
+fn_fail:
+    goto fn_exit;
 }
 
 MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_gamma(const void *sendbuf,
