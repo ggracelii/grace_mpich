@@ -69,39 +69,39 @@ int MPIR_RCCLcomm_init(MPIR_Comm *comm_ptr, int rank)
     rcclcomm->split_streams = MPL_malloc(sizeof(hipStream_t) * stream_count, MPL_MEM_OTHER);
     MPIR_ERR_CHKANDJUMP(!rcclcomm->split_streams, mpi_errno, MPI_ERR_OTHER, "**nomem");
 
-    // Generate and broadcast NCCL ID
-    // if (rank == 0) {
-    //     printf("[Rank %d] About to call ncclGetUniqueId\n", rank);
-    //     fflush(stdout);
-    //     ncclGetUniqueId(&(rcclcomm->id));
-    //     printf("[Rank %d] Successfully got unique ID\n", rank);
-    //     fflush(stdout);
-    // }
+    // Generate and broadcast NCCL ID for 1 comm 4 streams
+    if (rank == 0) {
+        printf("[Rank %d] About to call ncclGetUniqueId\n", rank);
+        fflush(stdout);
+        ncclGetUniqueId(&(rcclcomm->id));
+        printf("[Rank %d] Successfully got unique ID\n", rank);
+        fflush(stdout);
+    }
+
+    printf("[Rank %d] About to call Bcast\n", rank);
+    fflush(stdout);
+    mpi_errno = MPIR_Bcast_impl(&(rcclcomm->id), sizeof(rcclcomm->id), MPIR_UINT8, 0, comm_ptr, MPI_SUCCESS);
+    MPIR_ERR_CHECK(mpi_errno);
+    printf("[Rank %d] Successfully called Bcast\n", rank);
+    fflush(stdout);
 
     // Initialize multiple subcomms
-    printf("[Rank %d] Initializing RCCL communicators for %d subcomms\n", rank, MPIR_CVAR_N_SUBCOMMS);
-    fflush(stdout);
-    rcclcomm->split_comms = MPL_malloc(sizeof(ncclComm_t) * stream_count, MPL_MEM_OTHER);
-    MPIR_ERR_CHKANDJUMP(!rcclcomm->split_comms, mpi_errno, MPI_ERR_OTHER, "**nomem");
-    printf("[Rank %d] Successfully allocated split_comms\n", rank);
-    fflush(stdout);
-
-    //generate 4 unique IDs for 4 subcomms
-    ncclUniqueId *rccl_ids = MPL_malloc(sizeof(ncclUniqueId) * MPIR_CVAR_N_SUBCOMMS, MPL_MEM_OTHER);
-    MPIR_ERR_CHKANDJUMP(!rccl_ids, mpi_errno, MPI_ERR_OTHER, "**nomem");
-    if (rank == 0) {
-        for (int i = 0; i < MPIR_CVAR_N_SUBCOMMS; ++i) {
-            ncclGetUniqueId(&rccl_ids[i]);
-        }
-    }
-    MPI_Bcast(rccl_ids, sizeof(ncclUniqueId) * MPIR_CVAR_N_SUBCOMMS, MPI_BYTE, 0, MPI_COMM_WORLD);
-
-    // printf("[Rank %d] About to call Bcast\n", rank);
+    // printf("[Rank %d] Initializing RCCL communicators for %d subcomms\n", rank, MPIR_CVAR_N_SUBCOMMS);
     // fflush(stdout);
-    // mpi_errno = MPIR_Bcast_impl(&(rcclcomm->id), sizeof(rcclcomm->id), MPIR_UINT8, 0, comm_ptr, MPI_SUCCESS);
-    // MPIR_ERR_CHECK(mpi_errno);
-    // printf("[Rank %d] Successfully called Bcast\n", rank);
+    // rcclcomm->split_comms = MPL_malloc(sizeof(ncclComm_t) * stream_count, MPL_MEM_OTHER);
+    // MPIR_ERR_CHKANDJUMP(!rcclcomm->split_comms, mpi_errno, MPI_ERR_OTHER, "**nomem");
+    // printf("[Rank %d] Successfully allocated split_comms\n", rank);
     // fflush(stdout);
+
+    // //generate 4 unique IDs for 4 subcomms
+    // ncclUniqueId *rccl_ids = MPL_malloc(sizeof(ncclUniqueId) * MPIR_CVAR_N_SUBCOMMS, MPL_MEM_OTHER);
+    // MPIR_ERR_CHKANDJUMP(!rccl_ids, mpi_errno, MPI_ERR_OTHER, "**nomem");
+    // if (rank == 0) {
+    //     for (int i = 0; i < MPIR_CVAR_N_SUBCOMMS; ++i) {
+    //         ncclGetUniqueId(&rccl_ids[i]);
+    //     }
+    // }
+    // MPI_Bcast(rccl_ids, sizeof(ncclUniqueId) * MPIR_CVAR_N_SUBCOMMS, MPI_BYTE, 0, MPI_COMM_WORLD);
 
     // Create the default stream
     // printf("[Rank %d] About to create default RCCL stream\n", rank);
@@ -123,53 +123,54 @@ int MPIR_RCCLcomm_init(MPIR_Comm *comm_ptr, int rank)
     fflush(stdout);
 
     // Create the NCCL communicator
-    // int nranks = comm_ptr->local_size;
-    // printf("[Rank %d] About to call ncclCommInitRank\n", rank);
-    // fflush(stdout);
-    // printf("[Rank %d] nranks=%d, comm_ptr->rank=%d\n",
-    //    rank, nranks, comm_ptr->rank);
-    // fflush(stdout);
-    // n_ret = ncclCommInitRank(&(rcclcomm->rcclcomm), nranks, rcclcomm->id, comm_ptr->rank);
-    // printf("[Rank %d] ncclCommInitRank returned %d (%s)\n",
-    //    rank, n_ret, ncclGetErrorString(n_ret));
-    // fflush(stdout);
-    // NCCL_ERR_CHECK(n_ret);
-    // printf("[Rank %d] Successfully initialized NCCL communicator\n", rank);
-    // fflush(stdout);
-
-    // comm_ptr->cclcomm->rcclcomm = rcclcomm;
-    // printf("[Rank %d] cclcomm ptr: %p  | rcclcomm assigned: %p\n",
-    //    rank, (void*)comm_ptr->cclcomm, (void*)rcclcomm);
-    // fflush(stdout);
-    // if (comm_ptr->cclcomm->rcclcomm == NULL) {
-    //     printf("[Rank %d] FATAL: rcclcomm assignment failed!\n", rank);
-    //     fflush(stdout);
-    // }
-
-    // Initialize the RCCL communicator for each subcomm
     int nranks = comm_ptr->local_size;
-    printf("[Rank %d] Initializing RCCL communicators for %d subcomms\n", rank, MPIR_CVAR_N_SUBCOMMS);
+    printf("[Rank %d] About to call ncclCommInitRank\n", rank);
     fflush(stdout);
-    for (int i = 0; i < MPIR_CVAR_N_SUBCOMMS; ++i) {
-        n_ret = ncclCommInitRank(&(rcclcomm->split_comms[i]), nranks, rccl_ids[i], rank);
-        if (n_ret != ncclSuccess) {
-            printf("!!![Rank %d] ERROR: Failed to init split_comm[%d]: %s\n",
-                    rank, i, ncclGetErrorString(n_ret));
-            mpi_errno = MPI_ERR_OTHER;
-            goto fn_fail;
-        }
-        printf("[Rank %d] Successfully initialized split_comm[%d]\n", rank, i);
+    printf("[Rank %d] nranks=%d, comm_ptr->rank=%d\n",
+       rank, nranks, comm_ptr->rank);
+    fflush(stdout);
+    n_ret = ncclCommInitRank(&(rcclcomm->rcclcomm), nranks, rcclcomm->id, comm_ptr->rank);
+    printf("[Rank %d] ncclCommInitRank returned %d (%s)\n",
+       rank, n_ret, ncclGetErrorString(n_ret));
+    fflush(stdout);
+    NCCL_ERR_CHECK(n_ret);
+    printf("[Rank %d] Successfully initialized NCCL communicator\n", rank);
+    fflush(stdout);
+
+    comm_ptr->cclcomm->rcclcomm = rcclcomm;
+    printf("[Rank %d] cclcomm ptr: %p  | rcclcomm assigned: %p\n",
+       rank, (void*)comm_ptr->cclcomm, (void*)rcclcomm);
+    fflush(stdout);
+    if (comm_ptr->cclcomm->rcclcomm == NULL) {
+        printf("[Rank %d] FATAL: rcclcomm assignment failed!\n", rank);
         fflush(stdout);
     }
-    printf("[Rank %d] Successfully initialized RCCL communicators for all subcomms\n", rank);
-    fflush(stdout);
+
+    // Initialize the RCCL communicator for each subcomm
+    // int nranks = comm_ptr->local_size;
+    // printf("[Rank %d] Initializing RCCL communicators for %d subcomms\n", rank, MPIR_CVAR_N_SUBCOMMS);
+    // fflush(stdout);
+    // for (int i = 0; i < MPIR_CVAR_N_SUBCOMMS; ++i) {
+    //     n_ret = ncclCommInitRank(&(rcclcomm->split_comms[i]), nranks, rccl_ids[i], rank);
+    //     if (n_ret != ncclSuccess) {
+    //         printf("!!![Rank %d] ERROR: Failed to init split_comm[%d]: %s\n",
+    //                 rank, i, ncclGetErrorString(n_ret));
+    //         mpi_errno = MPI_ERR_OTHER;
+    //         goto fn_fail;
+    //     }
+    //     printf("[Rank %d] Successfully initialized split_comm[%d]\n", rank, i);
+    //     fflush(stdout);
+    // }
+    // printf("[Rank %d] Successfully initialized RCCL communicators for all subcomms\n", rank);
+    // fflush(stdout);
+    // MPL_free(rccl_ids);
 
     comm_ptr->cclcomm->rcclcomm = rcclcomm;
 
     printf("[Rank %d] Leaving MPIR_RCCLcomm_init\n", rank);
     fflush(stdout);
 
-    MPL_free(rccl_ids);
+
     
 fn_exit:
     return mpi_errno;
@@ -474,12 +475,12 @@ int MPIR_RCCL_Allreduce(const void *sendbuf, void *recvbuf, MPI_Aint count,
                rank, i, (long)offset, (long)this_chunk, send_ptr, recv_ptr, (void *)streams[i]);
 
         //1 comm 4 streams
-        // n_ret = ncclAllReduce(send_ptr, recv_ptr, this_chunk, rcclDatatype, rcclOp,
-        //                       rcclcomm->rcclcomm, streams[i]);
+        n_ret = ncclAllReduce(send_ptr, recv_ptr, this_chunk, rcclDatatype, rcclOp,
+                              rcclcomm->rcclcomm, streams[i]);
 
         // 4 comms 4 streams
-        n_ret = ncclAllReduce(send_ptr, recv_ptr, this_chunk, rcclDatatype, rcclOp,
-              rcclcomm->split_comms[i], streams[i]);
+        // n_ret = ncclAllReduce(send_ptr, recv_ptr, this_chunk, rcclDatatype, rcclOp,
+            //   rcclcomm->split_comms[i], streams[i]);
         NCCL_ERR_CHECK(n_ret);
     }
 
@@ -540,15 +541,15 @@ int MPIR_RCCLcomm_free(MPIR_Comm *comm)
 
     // Sync and destroy all split streams
     for (int i = 0; i < rcclcomm->stream_count; ++i) {
-        if (rcclcomm->split_comms && rcclcomm->split_comms[i]) {
-            ncclCommDestroy(rcclcomm->split_comms[i]);
-        }
+        // if (rcclcomm->split_comms && rcclcomm->split_comms[i]) {
+        //     ncclCommDestroy(rcclcomm->split_comms[i]);
+        // }
         if (rcclcomm->split_streams && rcclcomm->split_streams[i]) {
             hipStreamDestroy(rcclcomm->split_streams[i]);
         }
     }
 
-    MPL_free(rcclcomm->split_comms);
+    // MPL_free(rcclcomm->split_comms);
     MPL_free(rcclcomm->split_streams);
     MPL_free(rcclcomm);
     comm->cclcomm->rcclcomm = NULL;
