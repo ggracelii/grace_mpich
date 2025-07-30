@@ -641,7 +641,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_alpha(const void 
     goto fn_exit;
 }
 
-/* original
+/* original */
 MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_beta(const void *sendbuf,
                                                                     void *recvbuf, MPI_Aint count,
                                                                     MPI_Datatype datatype,
@@ -689,7 +689,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_beta(const void *
   fn_fail:
     goto fn_exit;
 }
-*/
+
 
 /* Pipeline with 1 communicator, 4 chunks 
 MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_beta(const void *sendbuf,
@@ -773,7 +773,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_beta(const void *
 }
 */
 
-/* Pipeline with 4 pre-initialized communicators */
+/* Pipeline with 4 pre-initialized communicators 
 MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_beta(const void *sendbuf,
                                                                     void *recvbuf, MPI_Aint count,
                                                                     MPI_Datatype datatype,
@@ -865,6 +865,7 @@ fn_exit:
 fn_fail:
     goto fn_exit;
 }
+*/
 
 MPL_STATIC_INLINE_PREFIX int MPIDI_Allreduce_intra_composition_gamma(const void *sendbuf,
                                                                      void *recvbuf, MPI_Aint count,

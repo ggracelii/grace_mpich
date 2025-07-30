@@ -23,9 +23,10 @@ typedef struct MPIR_RCCLcomm {
     ncclUniqueId id;
     ncclComm_t rcclcomm;
     hipStream_t stream;
-    hipStream_t *split_streams;  // new
     int stream_count;    // new
     bool streams_initialized;                          // new
+    ncclComm_t *split_comms;     // array of per-subcomm communicators
+    hipStream_t *split_streams;  // corresponding streams per communicator
 } MPIR_RCCLcomm;
 #endif /*ENABLE_RCCL */
 
@@ -61,6 +62,7 @@ int MPIR_RCCL_check_requirements_red_op(const void *sendbuf, void *recvbuf, MPI_
 int MPIR_RCCL_Allreduce(const void *sendbuf, void *recvbuf, MPI_Aint count, MPI_Datatype datatype,
                         MPI_Op op, MPIR_Comm * comm_ptr, int coll_attr);
 int MPIR_RCCLcomm_free(MPIR_Comm * comm);
+int MPIR_RCCLcomm_init(MPIR_Comm *comm_ptr, int rank);
 #endif /*ENABLE_RCCL */
 
 #endif /* ENABLE_CCLCOMM */
